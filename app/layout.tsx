@@ -17,12 +17,12 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "E7gzly — Book Medical Appointments Online",
+    default: "E7gzly — Smart Clinic Queue System",
     template: "%s | E7gzly",
   },
   description:
-    "E7gzly is a modern appointment booking platform. Find top-rated doctors, check availability, and book appointments instantly.",
-  keywords: ["medical", "appointments", "booking", "doctors", "healthcare", "Egypt"],
+    "Skip the wait. Join a clinic queue online, track your position in real-time, and arrive just in time for your turn.",
+  keywords: ["clinic", "queue", "doctors", "healthcare", "Egypt", "wait", "online"],
 };
 
 export default function RootLayout({

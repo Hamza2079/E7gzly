@@ -1,3 +1,5 @@
+import GoogleLoginButton from "@/components/auth/GoogleLoginButton";
+import { signInWithCredentials } from "@/app/(auth)/actions";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -5,7 +7,8 @@ export const metadata: Metadata = {
   title: "Sign In",
 };
 
-export default function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; message?: string }> }) {
+  const params = await searchParams;
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md space-y-8 rounded-xl bg-white p-8 shadow-lg">
@@ -17,13 +20,25 @@ export default function LoginPage() {
           <p className="mt-1 text-sm text-gray-500">Sign in to your account</p>
         </div>
 
-        <form className="space-y-5">
+        {params.error && (
+          <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+            {params.error}
+          </div>
+        )}
+        {params.message && (
+          <div className="rounded-lg bg-green-50 p-3 text-sm text-green-600">
+            {params.message}
+          </div>
+        )}
+
+        <form action={signInWithCredentials} className="space-y-5">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
               Email
             </label>
             <input
               id="email"
+              name="email"
               type="email"
               placeholder="you@example.com"
               className="mt-1 block w-full rounded-lg border px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -37,6 +52,7 @@ export default function LoginPage() {
             </label>
             <input
               id="password"
+              name="password"
               type="password"
               placeholder="••••••••"
               className="mt-1 block w-full rounded-lg border px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -71,10 +87,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <button className="flex w-full items-center justify-center gap-2 rounded-lg border py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
-          {/* TODO: Google icon */}
-          Continue with Google
-        </button>
+        <GoogleLoginButton />
 
         <p className="text-center text-sm text-gray-500">
           Don&apos;t have an account?{" "}

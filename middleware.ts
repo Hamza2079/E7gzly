@@ -1,33 +1,19 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest } from "next/server"
+import { updateSession } from "@/lib/supabase/middleware"
 
-/**
- * Next.js Middleware — runs on every request.
- * Protects dashboard routes and redirects unauthenticated users.
- */
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  // TODO: Validate Supabase session from cookies
-  // const session = await getSession(request);
-
-  const isProtectedRoute =
-    pathname.startsWith("/dashboard") || pathname.startsWith("/admin");
-
-  if (isProtectedRoute) {
-    // TODO: Check for valid session
-    // if (!session) {
-    //   return NextResponse.redirect(new URL("/login", request.url));
-    // }
-
-    // TODO: Check role-based access
-    // if (pathname.startsWith("/admin") && session.role !== "admin") {
-    //   return NextResponse.redirect(new URL("/dashboard", request.url));
-    // }
-  }
-
-  return NextResponse.next();
+export async function middleware(request: NextRequest) {
+  return await updateSession(request)
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/admin/:path*"],
-};
+  matcher: [
+    /*
+     * Match all request paths EXCEPT:
+     * - _next/static (static files)
+     * - _next/image (image optimization)
+     * - favicon.ico
+     * - static assets (svg, png, jpg, etc.)
+     */
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
+}

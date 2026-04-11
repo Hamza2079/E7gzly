@@ -29,38 +29,136 @@ export interface Provider {
   city: string;
   ratingAvg: number;
   totalReviews: number;
-  slotDuration: number;
   isVerified: boolean;
   user?: User;
 }
 
-export interface Appointment {
+// ============================================================
+// Queue System Types
+// ============================================================
+
+export interface DoctorSchedule {
   id: string;
-  patientId: string;
   providerId: string;
-  appointmentDate: string;
-  startTime: string;
-  endTime: string;
-  status: AppointmentStatus;
-  visitReason?: string;
-  cancellationReason?: string;
-  cancelledBy?: "patient" | "provider" | "admin";
-  patient?: User;
-  provider?: Provider;
+  dayOfWeek: number; // 0 = Sunday, 6 = Saturday
+  startTime: string; // "09:00"
+  endTime: string;   // "17:00"
+  breakStart?: string;
+  breakEnd?: string;
+  maxActive: number;
+  queueWindow: number;
+  gracePeriod: number; // minutes
+  isActive: boolean;
 }
 
-export type AppointmentStatus =
-  | "pending"
-  | "confirmed"
-  | "completed"
-  | "cancelled"
-  | "rescheduled"
-  | "no_show";
+export type QueueStatus = "open" | "paused" | "closed" | "completed";
 
-export interface TimeSlot {
-  start: string;
-  end: string;
-  isAvailable: boolean;
+export interface Queue {
+  id: string;
+  providerId: string;
+  scheduleId?: string;
+  date: string;
+  status: QueueStatus;
+  currentNumber: number;
+  currentServing?: number;
+  avgDuration: number;
+  adminOverride: boolean;
+  startedAt: string;
+  pausedAt?: string;
+  closedAt?: string;
+  // Joined relations
+  provider?: Provider;
+  schedule?: DoctorSchedule;
+}
+
+export type QueueEntryStatus =
+  | "waiting"
+  | "called"
+  | "in_progress"
+  | "completed"
+  | "no_show"
+  | "cancelled";
+
+export type TravelCategory = "here" | "nearby" | "medium" | "far" | "very_far";
+
+export const TRAVEL_DURATIONS: Record<TravelCategory, number> = {
+  here: 0,
+  nearby: 10,
+  medium: 20,
+  far: 40,
+  very_far: 50,
+};
+
+export interface QueueEntry {
+  id: string;
+  queueId: string;
+  patientId: string;
+  queueNumber: number;
+  status: QueueEntryStatus;
+  joinedAt: string;
+  calledAt?: string;
+  graceDeadline?: string;
+  completedAt?: string;
+  visitReason?: string;
+  travelCategory: TravelCategory;
+  notifiedAt?: string;
+  source: "app" | "walk_in" | "reinserted";
+  reinsertedFrom?: string;
+  // Joined relations
+  patient?: User;
+  queue?: Queue;
+}
+
+export interface QueueHistory {
+  id: string;
+  queueId: string;
+  totalPatients: number;
+  totalServed: number;
+  totalNoShows: number;
+  totalCancelled: number;
+  avgWaitTime?: number;
+  avgConsultation?: number;
+  createdAt: string;
+}
+
+// ============================================================
+// Computed / View Types (not stored, calculated at runtime)
+// ============================================================
+
+/** What the patient sees on the queue status page */
+export interface QueueStatusView {
+  queueId: string;
+  status: QueueStatus;
+  currentServing?: number;
+  waitingCount: number;
+  activeCount: number;
+  maxActive: number;
+  estimatedWait: number; // minutes
+  remainingWorkMinutes: number;
+  closesAt: string; // "17:00"
+  breakEnd?: string; // "13:00" (if currently on break)
+  canJoin: boolean;
+  canJoinReason?: string; // why they can't join
+}
+
+/** What the patient sees on their ticket */
+export interface QueueTicketView {
+  entry: QueueEntry;
+  position: number;
+  estimatedWait: number;
+  isInWindow: boolean;
+  graceRemaining?: number; // seconds, only when status = 'called'
+}
+
+// ============================================================
+// Shared Types
+// ============================================================
+
+export interface Specialty {
+  id: string;
+  name: string;
+  nameAr?: string;
+  icon?: string;
 }
 
 export interface Review {
@@ -73,13 +171,6 @@ export interface Review {
   providerResponse?: string;
   createdAt: string;
   patient?: User;
-}
-
-export interface Specialty {
-  id: string;
-  name: string;
-  nameAr?: string;
-  icon?: string;
 }
 
 export interface Notification {
