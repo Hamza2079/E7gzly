@@ -118,7 +118,12 @@ export async function updateSession(request: NextRequest) {
   // --- Logged in user visiting auth pages → redirect based on role ---
   if (isAuthRoute) {
     const url = request.nextUrl.clone()
-    url.pathname = profile.role === "admin" ? "/admin" : "/dashboard"
+    url.pathname =
+      profile.role === "admin"
+        ? "/admin"
+        : profile.role === "provider"
+        ? "/dashboard/queue"
+        : "/my-queue"
     return NextResponse.redirect(url)
   }
 
@@ -129,10 +134,24 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // --- Non-admin trying to access /admin → redirect to dashboard ---
+  // --- Non-admin trying to access /admin → redirect to their home ---
   if (pathname.startsWith("/admin") && profile.role !== "admin") {
     const url = request.nextUrl.clone()
-    url.pathname = "/dashboard"
+    url.pathname = profile.role === "provider" ? "/dashboard/queue" : "/my-queue"
+    return NextResponse.redirect(url)
+  }
+
+  // --- Provider visiting patient dashboard index → redirect to /dashboard/queue ---
+  if (pathname === "/dashboard" && profile.role === "provider") {
+    const url = request.nextUrl.clone()
+    url.pathname = "/dashboard/queue"
+    return NextResponse.redirect(url)
+  }
+
+  // --- Patient visiting any /dashboard route → redirect to /my-queue ---
+  if (pathname.startsWith("/dashboard") && profile.role === "patient") {
+    const url = request.nextUrl.clone()
+    url.pathname = "/my-queue"
     return NextResponse.redirect(url)
   }
 

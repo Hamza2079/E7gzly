@@ -10,6 +10,9 @@ import {
   LogOut,
   Stethoscope,
   ListOrdered,
+  BarChart3,
+  User,
+  Star,
 } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -36,46 +39,45 @@ export default async function DashboardLayout({
   const role = profile?.role || "patient";
   const name = profile?.full_name || "User";
 
-  const navItems =
-    role === "provider"
-      ? [
-          { href: "/dashboard/queue", icon: ListOrdered, label: "Queue" },
-          { href: "/dashboard/settings", icon: Settings, label: "Schedule" },
-        ]
-      : [
-          { href: "/dashboard", icon: LayoutDashboard, label: "Overview" },
-          { href: "/doctors", icon: Stethoscope, label: "Find Doctor" },
-        ];
+  const navItems = [
+    { href: "/dashboard/queue", icon: ListOrdered, label: "Queue" },
+    { href: "/dashboard/reports", icon: BarChart3, label: "Reports" },
+    { href: "/dashboard/reviews", icon: Star, label: "Reviews" },
+    { href: "/dashboard/profile", icon: User, label: "Profile Settings" },
+    { href: "/dashboard/settings", icon: Settings, label: "Queue Settings" },
+  ];
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen overflow-hidden text-gray-900">
       {/* Sidebar */}
-      <aside className="flex w-64 flex-col border-r bg-white">
-        <div className="flex h-16 items-center border-b px-6">
+      <aside className="flex w-16 md:w-64 shrink-0 flex-col border-r bg-white transition-all duration-300">
+        <div className="flex h-16 items-center justify-center md:justify-start border-b px-0 md:px-6">
           <Link href="/" className="text-xl font-bold text-blue-600">
-            E7gzly
+            <span className="md:hidden">E7</span>
+            <span className="hidden md:inline">E7gzly</span>
           </Link>
         </div>
 
-        <nav className="flex-1 space-y-1 px-3 py-4">
+        <nav className="flex-1 space-y-1 px-2 py-4 md:px-3">
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+              title={item.label}
+              className="flex items-center justify-center md:justify-start gap-3 rounded-lg p-2.5 md:px-3 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
             >
-              <item.icon className="h-5 w-5" />
-              {item.label}
+              <item.icon className="h-6 w-6 md:h-5 md:w-5 shrink-0" />
+              <span className="hidden md:inline">{item.label}</span>
             </Link>
           ))}
         </nav>
 
-        <div className="border-t p-4">
-          <div className="mb-3 flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-600">
+        <div className="border-t p-2 md:p-4">
+          <div className="mb-3 flex items-center justify-center md:justify-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-600">
               {name.charAt(0)}
             </div>
-            <div className="flex-1 overflow-hidden">
+            <div className="hidden flex-1 overflow-hidden md:block">
               <p className="truncate text-sm font-medium text-gray-900">{name}</p>
               <p className="truncate text-xs text-gray-400">
                 {role === "provider" ? "Doctor" : "Patient"}
@@ -85,9 +87,10 @@ export default async function DashboardLayout({
           <form action="/auth/signout" method="post">
             <button
               type="submit"
-              className="flex w-full items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+              title="Sign Out"
+              className="flex w-full items-center justify-center md:justify-start gap-2 rounded-lg border border-red-200 p-2.5 md:px-3 md:py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
             >
-              <LogOut className="h-4 w-4" /> Sign Out
+              <LogOut className="h-5 w-5 shrink-0" /> <span className="hidden md:inline">Sign Out</span>
             </button>
           </form>
         </div>
@@ -97,7 +100,7 @@ export default async function DashboardLayout({
       <div className="flex flex-1 flex-col overflow-y-auto">
         <header className="flex h-16 items-center justify-between border-b bg-white px-6">
           <h2 className="text-lg font-semibold text-gray-900">
-            {role === "provider" ? "Doctor Dashboard" : "Patient Dashboard"}
+            Doctor Dashboard
           </h2>
         </header>
         <main className="flex-1 bg-gray-50 p-6">{children}</main>
