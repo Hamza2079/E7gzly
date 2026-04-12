@@ -2,8 +2,8 @@
 import { createClient } from "@/lib/supabase/client"
 
 export default function GoogleLoginButton() {
-    const supabase = createClient();
     const handleGoogleLogin = async () => {
+        const supabase = createClient();
         const { error } = await supabase.auth.signInWithOAuth({
             provider: "google",
             options: {
