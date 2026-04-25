@@ -23,7 +23,7 @@ async function getOwnEntry(supabase: any, entryId: string, userId: string) {
     .select("id, queue_id, patient_id, status, travel_category")
     .eq("id", entryId)
     .eq("patient_id", userId)
-    .in("status", ["waiting", "called", "in_progress"])
+    .in("status", ["ready", "not_ready", "waiting", "called", "in_progress"])
     .single()
 
   if (!data) throw new Error("Queue entry not found or not yours")
@@ -209,4 +209,29 @@ export async function requestGraceExtension(
   if (error) return { error: error.message }
   revalidatePath("/dashboard/queue")
   return { success: true, requestedMinutes: capped }
+}
+
+/**
+ * Patient marks themselves as ready to join the active queue line.
+ */
+export async function markReady(entryId: string) {
+  const { supabase, user } = await getAuthUser()
+  const entry = await getOwnEntry(supabase, entryId, user.id)
+
+  if (entry.status !== "not_ready") {
+    return { error: "You are already in the active queue" }
+  }
+
+  const { error } = await supabase
+    .from("queue_entries")
+    .update({
+      status: "ready",
+      last_ready_at: new Date().toISOString(),
+      travel_category: "here", // Assuming they are nearby/here if they mark ready
+    })
+    .eq("id", entryId)
+
+  if (error) return { error: error.message }
+  revalidatePath("/dashboard/queue")
+  return { success: true }
 }

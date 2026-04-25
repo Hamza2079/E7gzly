@@ -30,3 +30,14 @@ export async function createServer() {
       }
         )
 }
+
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+
+export function createAdminClient(supabaseUrl: string, serviceRoleKey: string) {
+  return createSupabaseClient<Database>(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}

@@ -2,7 +2,7 @@
 
 import { usePatientTicket } from "@/hooks/use-patient-ticket"
 import { leaveQueue } from "@/actions/queue"
-import { updateTravelStatus, checkInAtClinic, sendPatientMessage, respondToCall } from "@/actions/patient-queue"
+import { updateTravelStatus, sendPatientMessage, respondToCall, checkInAtClinic, markReady } from "@/actions/patient-queue"
 import { submitReview } from "@/actions/review"
 import { useState, useTransition } from "react"
 import Link from "next/link"
@@ -68,6 +68,12 @@ export default function QueueTicket({
   const handleRespondToCall = (response: "coming" | "need_time") => {
     startTransition(async () => {
       await respondToCall(entryId, response)
+    })
+  }
+
+  const handleMarkReady = () => {
+    startTransition(async () => {
+      await markReady(entryId)
     })
   }
 
@@ -306,16 +312,33 @@ export default function QueueTicket({
           )}
 
           {/* ── GET READY ALERT ── */}
-          {ticket.entryStatus === "waiting" && ticket.isNextInLine && (
+          {ticket.entryStatus === "ready" && ticket.isNextInLine && (
             <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-4 animate-pulse">
               <p className="text-lg font-bold text-amber-700">⚡ Get ready!</p>
               <p className="text-sm text-amber-600">You&apos;re next in line. Make sure you&apos;re at the clinic.</p>
             </div>
           )}
+
+          {/* ── NOT READY STATE ── */}
+          {ticket.entryStatus === "not_ready" && (
+            <div className="mt-4 space-y-3">
+              <div className="rounded-xl bg-gray-50 border border-gray-200 p-4">
+                <p className="text-base font-bold text-gray-700 text-center">You are not in the active queue yet.</p>
+                <p className="text-sm text-gray-500 text-center mt-1">Please mark yourself as ready when you arrive or are nearby.</p>
+              </div>
+              <button
+                onClick={handleMarkReady}
+                disabled={isPending}
+                className="w-full rounded-xl bg-blue-600 py-3 text-sm font-bold text-white hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <MapPin className="h-4 w-4" /> I&apos;m Here / I&apos;m Ready
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ── WAITING STATS ── */}
-        {ticket.entryStatus === "waiting" && (
+        {ticket.entryStatus === "ready" && (
           <>
             <div className="grid grid-cols-3 gap-px border-t bg-gray-100">
               <div className="bg-white px-4 py-4 text-center">
@@ -357,7 +380,7 @@ export default function QueueTicket({
       </div>
 
       {/* ── TRAVEL STATUS UPDATER ── */}
-      {(ticket.entryStatus === "waiting" || ticket.entryStatus === "called") && (
+      {(ticket.entryStatus === "ready" || ticket.entryStatus === "called") && (
         <div className="rounded-2xl bg-white p-4 shadow-sm border border-gray-100">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">📍 Where are you?</p>
           <div className="grid grid-cols-4 gap-2">
@@ -398,7 +421,7 @@ export default function QueueTicket({
       )}
 
       {/* ── MESSAGE TO CLINIC ── */}
-      {(ticket.entryStatus === "waiting" || ticket.entryStatus === "called") && (
+      {(ticket.entryStatus === "ready" || ticket.entryStatus === "called") && (
         <div className="rounded-2xl bg-white shadow-sm border border-gray-100 overflow-hidden">
           {showMessageInput ? (
             <div className="p-4 space-y-3">

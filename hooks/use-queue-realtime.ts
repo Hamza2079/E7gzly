@@ -19,6 +19,7 @@ export interface QueueRealtimeData {
   delayMinutes: number
   doctorMessage: string | null
   pausedAt: string | null
+  sessionToken?: string | null
 }
 
 export interface QueueEntryData {
@@ -36,6 +37,7 @@ export interface QueueEntryData {
   patient_message: string | null
   is_checked_in: boolean
   travel_updated_at: string | null
+  last_ready_at: string | null
   // Joined
   users?: { full_name: string; phone: string | null }
 }
@@ -52,7 +54,7 @@ export function useQueueRealtime(queueId: string | null) {
     // Fetch queue with sync fields
     const { data: queue } = await supabase
       .from("queues")
-      .select("status, current_serving, current_number, avg_duration, break_until, delay_minutes, doctor_message, paused_at")
+      .select("status, current_serving, current_number, avg_duration, break_until, delay_minutes, doctor_message, paused_at, session_token")
       .eq("id", queueId)
       .single()
 
@@ -66,15 +68,16 @@ export function useQueueRealtime(queueId: string | null) {
         delayMinutes: queue.delay_minutes || 0,
         doctorMessage: queue.doctor_message || null,
         pausedAt: queue.paused_at || null,
+        sessionToken: queue.session_token || null,
       })
     }
 
     // Fetch active entries with sync fields
     const { data: queueEntries } = await supabase
       .from("queue_entries")
-      .select("id, queue_number, patient_id, status, called_at, grace_deadline, visit_reason, source, travel_category, patient_eta, patient_message, is_checked_in, travel_updated_at, users(full_name, phone)")
+      .select("id, queue_number, patient_id, status, called_at, grace_deadline, visit_reason, source, travel_category, patient_eta, patient_message, is_checked_in, travel_updated_at, last_ready_at, users(full_name, phone)")
       .eq("queue_id", queueId)
-      .in("status", ["waiting", "called", "in_progress"])
+      .in("status", ["ready", "not_ready", "called", "in_progress"])
       .order("queue_number", { ascending: true })
 
     if (queueEntries) setEntries(queueEntries as unknown as QueueEntryData[])
@@ -113,17 +116,23 @@ export function useQueueRealtime(queueId: string | null) {
           filter: `id=eq.${queueId}`,
         },
         (payload) => {
-          const updated = payload.new as Record<string, unknown>
-          setQueueData({
-            status: updated.status as string,
-            currentServing: updated.current_serving as number | null,
-            currentNumber: updated.current_number as number,
-            avgDuration: updated.avg_duration as number,
-            breakUntil: (updated.break_until as string) || null,
-            delayMinutes: (updated.delay_minutes as number) || 0,
-            doctorMessage: (updated.doctor_message as string) || null,
-            pausedAt: (updated.paused_at as string) || null,
-          })
+          const queueUpdate = payload.new as Record<string, unknown>
+          setQueueData((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  status: (queueUpdate.status as string) || prev.status,
+                  currentServing: (queueUpdate.current_serving as number | null) ?? prev.currentServing,
+                  currentNumber: (queueUpdate.current_number as number | null) ?? prev.currentNumber,
+                  avgDuration: (queueUpdate.avg_duration as number | null) ?? prev.avgDuration,
+                  breakUntil: (queueUpdate.break_until as string | null) || null,
+                  delayMinutes: (queueUpdate.delay_minutes as number | null) ?? 0,
+                  doctorMessage: (queueUpdate.doctor_message as string | null) || null,
+                  pausedAt: (queueUpdate.paused_at as string | null) || null,
+                  sessionToken: (queueUpdate.session_token as string | null) || prev.sessionToken,
+                }
+              : null
+          )
         }
       )
       .subscribe((status) => {
@@ -136,7 +145,7 @@ export function useQueueRealtime(queueId: string | null) {
   }, [queueId, fetchInitialData])
 
   // Derived data
-  const waitingEntries = entries.filter((e) => e.status === "waiting")
+  const waitingEntries = entries.filter((e) => e.status === "ready" || e.status === "not_ready")
   const calledEntry = entries.find((e) => e.status === "called")
   const inProgressEntry = entries.find((e) => e.status === "in_progress")
   const currentPatient = inProgressEntry || calledEntry

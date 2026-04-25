@@ -75,6 +75,7 @@ export function usePatientTicket(
     travel_category: string
     patient_message: string | null
     is_checked_in: boolean
+    last_ready_at: string | null
   } | null>(null)
 
   useEffect(() => {
@@ -83,7 +84,7 @@ export function usePatientTicket(
     // Initial fetch
     supabase
       .from("queue_entries")
-      .select("status, grace_deadline, travel_category, patient_message, is_checked_in")
+      .select("status, grace_deadline, travel_category, patient_message, is_checked_in, last_ready_at")
       .eq("id", entryId)
       .maybeSingle()
       .then(({ data }) => {
@@ -109,6 +110,7 @@ export function usePatientTicket(
             travel_category: (entry.travel_category as string) || "here",
             patient_message: (entry.patient_message as string) || null,
             is_checked_in: (entry.is_checked_in as boolean) ?? false,
+            last_ready_at: (entry.last_ready_at as string) || null,
           })
         }
       )
@@ -137,11 +139,22 @@ export function usePatientTicket(
   const state = useMemo<PatientTicketState>(() => {
     const avgDuration = queueData?.avgDuration || 10
 
-    // Position: count how many waiting entries have a lower queue number
-    const position =
-      entryStatus === "waiting"
-        ? waitingEntries.filter((e) => e.queue_number < queueNumber).length + 1
-        : 0
+    // Position: count how many READY entries have an earlier last_ready_at
+    // Or if last_ready_at is identical, tie-break by queue_number
+    let position = 0
+    if (entryStatus === "ready" && (liveEntry?.last_ready_at || myEntryFromList?.last_ready_at)) {
+      const myReadyAt = liveEntry?.last_ready_at || myEntryFromList?.last_ready_at
+      const myDate = myReadyAt ? new Date(myReadyAt).getTime() : 0
+      
+      const readyEntries = waitingEntries.filter(e => e.status === "ready" && e.last_ready_at)
+      const peopleAhead = readyEntries.filter(e => {
+        const theirDate = new Date(e.last_ready_at!).getTime()
+        if (theirDate < myDate) return true
+        if (theirDate === myDate && e.queue_number < queueNumber) return true
+        return false
+      })
+      position = peopleAhead.length + 1
+    }
 
     // Estimated wait in minutes
     const estimatedWaitMinutes = position * avgDuration

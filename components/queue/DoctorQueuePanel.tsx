@@ -2,11 +2,12 @@
 
 import { useQueueRealtime, useGraceCountdown } from "@/hooks/use-queue-realtime"
 import {
-  callNextPatient, startConsultation, completePatient, skipPatient,
+  callNextPatient, callNextNotReadyPatient, startConsultation, completePatient, skipPatient,
   openQueue, pauseQueue, resumeQueue, closeQueue,
   sendDoctorMessage, clearDoctorMessage, extendGracePeriod
 } from "@/actions/queue"
-import { useState, useTransition } from "react"
+import { regenerateReceptionistSession } from "@/actions/receptionist"
+import { useState, useTransition, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import {
   Play, CheckCircle, Users, Activity, Clock, LogOut, FileText,
@@ -45,12 +46,29 @@ export default function DoctorQueuePanel({ queueId, doctorName, specialty, today
 
   const graceRemaining = useGraceCountdown(calledPatient?.grace_deadline || null)
 
+  const readyEntries = waitingEntries.filter(e => e.status === "ready")
+  const notReadyEntries = waitingEntries.filter(e => e.status === "not_ready")
+
   const handleAction = (action: () => Promise<unknown>) => {
     startTransition(async () => {
       await action()
       refetch()
     })
   }
+
+  // Auto-skip logic
+  const hasAutoSkipped = useRef<string | null>(null)
+  
+  useEffect(() => {
+    if (calledPatient && graceRemaining === 0 && hasAutoSkipped.current !== calledPatient.id) {
+      hasAutoSkipped.current = calledPatient.id
+      handleAction(() => skipPatient(calledPatient.id))
+    }
+    // Reset ref if patient changes
+    if (!calledPatient || calledPatient.id !== hasAutoSkipped.current) {
+      hasAutoSkipped.current = null
+    }
+  }, [calledPatient, graceRemaining])
 
   // ── No queue state ──
   if (!queueId || !queueData) {
@@ -117,8 +135,43 @@ export default function DoctorQueuePanel({ queueId, doctorName, specialty, today
             className={`px-4 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 transition ${queueData.status === "closed" ? "bg-red-500 text-white shadow" : "text-gray-500 hover:bg-gray-50"}`}>
             Close
           </button>
+          
+          {queueData.status === "open" && (
+            <div className="border-l border-gray-200 pl-2 ml-1 hidden md:block">
+              <button 
+                onClick={() => handleAction(() => regenerateReceptionistSession(queueId!))}
+                disabled={isPending}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 flex items-center gap-1 transition whitespace-nowrap"
+                title="Regenerate Receptionist Link"
+              >
+                <Users className="h-3.5 w-3.5" /> Receptionist Link
+              </button>
+            </div>
+          )}
         </div>
       </div>
+
+      {queueData.sessionToken && queueData.status === "open" && (
+        <div className="mb-6 rounded-xl bg-gray-50 border border-gray-200 p-3 flex items-center justify-between shadow-inner">
+          <div className="flex items-center gap-2 overflow-hidden mr-4">
+            <span className="text-xs font-bold text-gray-500 shrink-0">Receptionist Link:</span>
+            <code className="text-xs text-gray-700 bg-white px-2 py-1 rounded border border-gray-200 truncate">
+              {`${typeof window !== 'undefined' ? window.location.origin : ''}/clinic/session/${queueData.sessionToken}`}
+            </code>
+          </div>
+          <button 
+            onClick={() => {
+              if (typeof navigator !== 'undefined') {
+                navigator.clipboard.writeText(`${window.location.origin}/clinic/session/${queueData.sessionToken}`)
+                alert("Receptionist link copied to clipboard!")
+              }
+            }}
+            className="text-xs font-bold text-blue-600 bg-white border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition shrink-0 shadow-sm"
+          >
+            Copy Link
+          </button>
+        </div>
+      )}
 
       {/* Break/Delay alert banner */}
       {queueData.breakUntil && queueData.status === "paused" && (
@@ -237,10 +290,18 @@ export default function DoctorQueuePanel({ queueId, doctorName, specialty, today
                   </button>
                 )
               ) : (
-                <button onClick={() => handleAction(() => callNextPatient(queueId!))} disabled={isPending || waitingEntries.length === 0}
-                  className="bg-blue-600 text-white rounded-xl py-3 px-6 font-bold text-sm shadow-sm hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:bg-gray-300">
-                  <FileText className="h-4 w-4" /> Call Next
-                </button>
+                <div className="flex flex-col gap-2 w-full">
+                  <button onClick={() => handleAction(() => callNextPatient(queueId!))} disabled={isPending || readyEntries.length === 0}
+                    className="bg-blue-600 text-white rounded-xl py-3 px-6 font-bold text-sm shadow-sm hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:bg-gray-300">
+                    <FileText className="h-4 w-4" /> Call Next
+                  </button>
+                  {readyEntries.length === 0 && notReadyEntries.length > 0 && (
+                    <button onClick={() => handleAction(() => callNextNotReadyPatient(queueId!))} disabled={isPending}
+                      className="bg-amber-100 text-amber-700 rounded-xl py-2 px-6 font-bold text-xs shadow-sm hover:bg-amber-200 transition flex items-center justify-center gap-2 border border-amber-200">
+                      <AlertTriangle className="h-3 w-3" /> Force Call Not-Ready
+                    </button>
+                  )}
+                </div>
               )}
               {activePatient && (
                 <button onClick={() => handleAction(() => skipPatient(activePatient.id))} disabled={isPending}
@@ -283,21 +344,22 @@ export default function DoctorQueuePanel({ queueId, doctorName, specialty, today
                   {waitingEntries.length === 0 ? (
                     <tr><td colSpan={5} className="text-center py-12 text-gray-400">No patients waiting.</td></tr>
                   ) : (
-                    waitingEntries.map((entry, idx) => {
+                    waitingEntries.map((entry) => {
                       const travel = TRAVEL_ICONS[entry.travel_category] || TRAVEL_ICONS.here
                       const TravelIcon = travel.icon
+                      const isReady = entry.status === "ready"
                       return (
-                        <tr key={entry.id} className="hover:bg-gray-50/50 transition">
+                        <tr key={entry.id} className={`transition ${isReady ? "hover:bg-gray-50/50" : "opacity-60 bg-gray-50/30"}`}>
                           <td className="px-6 py-4">
-                            <span className="font-bold text-blue-600">#{String(entry.queue_number).padStart(3, '0')}</span>
+                            <span className={`font-bold ${isReady ? "text-blue-600" : "text-gray-400"}`}>#{String(entry.queue_number).padStart(3, '0')}</span>
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 rounded-full bg-gray-200 overflow-hidden shrink-0">
+                              <div className="h-8 w-8 rounded-full bg-gray-200 overflow-hidden shrink-0 opacity-80">
                                 <img src={`https://i.pravatar.cc/150?u=${entry.id}`} alt="Patient" />
                               </div>
                               <div>
-                                <span className="font-semibold text-gray-900">{entry.users?.full_name || "Walk-in"}</span>
+                                <span className={`font-semibold ${isReady ? "text-gray-900" : "text-gray-500"}`}>{entry.users?.full_name || "Walk-in"}</span>
                                 {entry.patient_message && (
                                   <p className="text-[10px] text-amber-600 mt-0.5 flex items-center gap-1">
                                     <MessageSquare className="h-2.5 w-2.5" /> {entry.patient_message}
@@ -320,20 +382,14 @@ export default function DoctorQueuePanel({ queueId, doctorName, specialty, today
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            {idx === 0 ? (
-                              <span className="inline-flex items-center bg-green-100 text-green-700 text-xs font-bold px-2.5 py-1 rounded-full">Next</span>
-                            ) : entry.source === "walk_in" ? (
-                              <span className="inline-flex items-center bg-orange-100 text-orange-700 text-xs font-bold px-2.5 py-1 rounded-full">Walk-in</span>
+                            {isReady ? (
+                              <span className="inline-flex items-center bg-green-100 text-green-700 text-xs font-bold px-2.5 py-1 rounded-full">Ready</span>
                             ) : (
-                              <span className="inline-flex items-center bg-gray-100 text-gray-600 text-xs font-bold px-2.5 py-1 rounded-full">Waiting</span>
+                              <span className="inline-flex items-center bg-gray-200 text-gray-500 text-xs font-bold px-2.5 py-1 rounded-full">Not Ready</span>
                             )}
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-3">
-                              {idx === 0 && !activePatient && (
-                                <button onClick={() => handleAction(() => callNextPatient(queueId!))} disabled={isPending}
-                                  className="text-xs font-bold text-blue-600 hover:text-blue-800">Call</button>
-                              )}
                               <button onClick={() => handleAction(() => skipPatient(entry.id))} disabled={isPending}
                                 className="text-xs font-bold text-gray-400 hover:text-red-600">Skip</button>
                             </div>

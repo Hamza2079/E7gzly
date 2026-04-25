@@ -69,13 +69,16 @@ export interface Queue {
   breakUntil?: string;
   delayMinutes: number;
   doctorMessage?: string;
+  sessionToken?: string;
+  sessionExpiresAt?: string;
   // Joined relations
   provider?: Provider;
   schedule?: DoctorSchedule;
 }
 
 export type QueueEntryStatus =
-  | "waiting"
+  | "ready"
+  | "not_ready"
   | "called"
   | "in_progress"
   | "completed"
@@ -105,11 +108,13 @@ export interface QueueEntry {
   visitReason?: string;
   travelCategory: TravelCategory;
   notifiedAt?: string;
-  source: "app" | "walk_in" | "reinserted";
+  source: "app" | "walk_in" | "reception";
   reinsertedFrom?: string;
   patientEta?: string;
   patientMessage?: string;
-  isCheckedIn: boolean;
+  isPatientCheckedIn: boolean;
+  lastReadyAt: string | null;
+  deferCount: number;
   travelUpdatedAt?: string;
   // Joined relations
   patient?: User;
