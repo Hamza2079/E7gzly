@@ -144,6 +144,9 @@ export interface Database {
           started_at: string;
           paused_at: string | null;
           closed_at: string | null;
+          break_until: string | null;
+          delay_minutes: number;
+          doctor_message: string | null;
           created_at: string;
         };
         Insert: {
@@ -158,6 +161,9 @@ export interface Database {
           started_at?: string;
           paused_at?: string | null;
           closed_at?: string | null;
+          break_until?: string | null;
+          delay_minutes?: number;
+          doctor_message?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["queues"]["Insert"]>;
       };
@@ -177,6 +183,10 @@ export interface Database {
           notified_at: string | null;
           source: "app" | "walk_in" | "reinserted";
           reinserted_from: string | null;
+          patient_eta: string | null;
+          patient_message: string | null;
+          is_checked_in: boolean;
+          travel_updated_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -193,6 +203,10 @@ export interface Database {
           notified_at?: string | null;
           source?: "app" | "walk_in" | "reinserted";
           reinserted_from?: string | null;
+          patient_eta?: string | null;
+          patient_message?: string | null;
+          is_checked_in?: boolean;
+          travel_updated_at?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["queue_entries"]["Insert"]>;
       };

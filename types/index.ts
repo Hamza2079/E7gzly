@@ -66,6 +66,9 @@ export interface Queue {
   startedAt: string;
   pausedAt?: string;
   closedAt?: string;
+  breakUntil?: string;
+  delayMinutes: number;
+  doctorMessage?: string;
   // Joined relations
   provider?: Provider;
   schedule?: DoctorSchedule;
@@ -104,6 +107,10 @@ export interface QueueEntry {
   notifiedAt?: string;
   source: "app" | "walk_in" | "reinserted";
   reinsertedFrom?: string;
+  patientEta?: string;
+  patientMessage?: string;
+  isCheckedIn: boolean;
+  travelUpdatedAt?: string;
   // Joined relations
   patient?: User;
   queue?: Queue;
@@ -139,6 +146,9 @@ export interface QueueStatusView {
   breakEnd?: string; // "13:00" (if currently on break)
   canJoin: boolean;
   canJoinReason?: string; // why they can't join
+  breakUntil?: string;
+  delayMinutes: number;
+  doctorMessage?: string;
 }
 
 /** What the patient sees on their ticket */

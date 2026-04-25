@@ -2,29 +2,52 @@
 import Link from "next/link"
 import { createServer } from "@/lib/supabase/server"
 import Navbar from "@/components/queue/Navbar"
+import DoctorFilters from "@/components/directory/DoctorFilters"
+import FavoriteButton from "@/components/directory/FavoriteButton"
 import { MapPin, SlidersHorizontal, MonitorSmartphone } from "lucide-react"
 
 export const metadata = {
   title: "Directory | E7gzly",
 }
 
-export default async function DoctorsPage() {
+type SearchParams = Promise<{ [key: string]: string | undefined }>
+
+export default async function DoctorsPage({ searchParams }: { searchParams: SearchParams }) {
   const supabase = await createServer()
   const today = new Date().toISOString().split("T")[0]
 
+  const resolvedParams = await searchParams;
+  const qStr = resolvedParams?.q || "";
+  const cityStr = resolvedParams?.city || "";
+  const specStr = resolvedParams?.spec || "";
+
   // Fetch verified providers
-  const { data: providers } = await supabase
+  let query = supabase
     .from("providers")
     .select(`
+
       id,
       user_id,
       city,
       consultation_fee,
       rating_avg,
-      users(full_name, avatar_url),
-      specialties(name)
+      users!inner(full_name, avatar_url),
+      specialties!inner(name)
     `)
     .eq("is_verified", true)
+
+  if (qStr) query = query.ilike("users.full_name", `%${qStr}%`)
+  if (cityStr) query = query.ilike("city", `%${cityStr}%`)
+  if (specStr) query = query.ilike("specialties.name", `%${specStr}%`)
+
+  const { data: providers } = await query
+  const { data: { user } } = await supabase.auth.getUser()
+
+  let favorites = new Set<string>()
+  if (user) {
+    const { data: favs } = await supabase.from("patient_favorites").select("provider_id").eq("patient_id", user.id)
+    if (favs) favorites = new Set(favs.map(f => f.provider_id))
+  }
 
   // Fetch today's queues for all providers
   const { data: queues } = await supabase
@@ -74,16 +97,8 @@ export default async function DoctorsPage() {
               Real-time queue status and clinical availability.
             </p>
           </div>
-          <div className="flex items-center gap-3">
-             <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-full hover:bg-gray-50 transition">
-               <SlidersHorizontal className="h-4 w-4" /> Filters
-             </button>
-             <button className="px-5 py-2 text-sm font-medium text-white bg-blue-600 border border-blue-600 rounded-full shadow-sm hover:bg-blue-700 transition">
-               All Doctors
-             </button>
-             <button className="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-full hover:bg-gray-50 transition">
-               Available Now
-             </button>
+          <div className="flex-1 flex justify-end">
+             <DoctorFilters />
           </div>
         </div>
 
@@ -100,16 +115,23 @@ export default async function DoctorsPage() {
               const status = queue?.status || "closed"
               const waitTime = queue ? `${queue.waitMins} mins` : "Unavailable"
               const placeholderImg = placeholders[index % placeholders.length]
+              const u = Array.isArray(provider.users) ? provider.users[0] : provider.users;
+              const isFavorite = favorites.has(provider.id);
 
               return (
-                <div key={provider.id} className="group bg-white rounded-3xl overflow-hidden shadow-sm ring-1 ring-gray-100 transition-shadow hover:shadow-md flex flex-col">
+                <div key={provider.id} className="group bg-white rounded-3xl overflow-hidden shadow-sm ring-1 ring-gray-100 transition-shadow hover:shadow-md flex flex-col relative">
                   {/* Global Image Asset Layer */}
                   <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
                     <img 
-                      src={provider.users?.avatar_url || placeholderImg} 
+                      src={u?.avatar_url || placeholderImg} 
                       alt="Doctor" 
                       className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
+
+                    {/* Left Absolute Action - Favorite */}
+                    <div className="absolute top-4 left-4 z-10">
+                      {user && <FavoriteButton providerId={provider.id} initialFavorite={isFavorite} />}
+                    </div>
                     
                     {/* Floating Status Pill */}
                     <div className="absolute top-4 right-4">
@@ -137,7 +159,7 @@ export default async function DoctorsPage() {
                       {provider.specialties?.name || "General Practice"}
                     </p>
                     <h3 className="font-bold text-gray-900 text-lg">
-                      Dr. {provider.users?.full_name}
+                      Dr. {u?.full_name}
                     </h3>
                     <div className="flex items-center gap-1 text-sm text-gray-500 mt-1 mb-5">
                       <MapPin className="h-3.5 w-3.5" /> {provider.city || "Clinic Location"}

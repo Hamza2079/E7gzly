@@ -29,9 +29,10 @@ export default async function QueueTicketPage({ params }: { params: Promise<{ en
   // Verify ownership
   if (entry.patient_id !== user.id) notFound()
 
-  const queue = entry.queues as { id: string; providers: { users: { full_name: string }; specialties: { name: string } } }
-  const doctorName = `Dr. ${queue?.providers?.users?.full_name || "Unknown"}`
-  const specialtyName = queue?.providers?.specialties?.name || "General"
+  const queue = entry.queues as any
+  const provider = queue?.providers
+  const doctorName = `Dr. ${provider?.users?.full_name || "Unknown"}`
+  const specialtyName = provider?.specialties?.name || "General"
 
   return (
     <>
@@ -44,6 +45,9 @@ export default async function QueueTicketPage({ params }: { params: Promise<{ en
           initialStatus={entry.status}
           doctorName={doctorName}
           specialtyName={specialtyName}
+          providerId={provider?.id}
+          clinicName={provider?.clinic_name}
+          clinicAddress={provider?.clinic_address || provider?.city}
         />
       </div>
     </>
