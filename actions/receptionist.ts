@@ -27,19 +27,6 @@ export async function receptionistAddWalkIn(sessionToken: string, patientName: s
     return { error: "Session has expired" }
   }
 
-  const newNumber = queue.current_number + 1
-  
-  // Securely update queue number using admin client or standard service role if possible
-  // Using standard supabase client for now, assuming RLS allows updates based on session token?
-  // We need to bypass RLS here because receptionist is unauthenticated.
-  // We use service_role for receptionist operations since token is the secret auth.
-  
-  // Update queue
-  await adminSupabase
-    .from("queues")
-    .update({ current_number: newNumber })
-    .eq("id", queue.id)
-
   // Get doctor user_id to use as proxy patient
   const { data: provider } = await adminSupabase
     .from("providers")
@@ -47,23 +34,50 @@ export async function receptionistAddWalkIn(sessionToken: string, patientName: s
     .eq("id", queue.provider_id)
     .single()
 
-  // Insert entry
-  const { error } = await adminSupabase
-    .from("queue_entries")
-    .insert({
-      queue_id: queue.id,
-      patient_id: provider?.user_id || "00000000-0000-0000-0000-000000000000", // proxy
-      queue_number: newNumber,
-      status: "ready",
-      last_ready_at: new Date().toISOString(),
-      visit_reason: `Walk-in: ${patientName}`,
-      travel_category: "here",
-      source: "walk_in",
-    })
+  const MAX_RETRIES = 3
+  
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const { data: maxEntry } = await adminSupabase
+      .from("queue_entries")
+      .select("queue_number")
+      .eq("queue_id", queue.id)
+      .order("queue_number", { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
-  if (error) return { error: error.message }
-  revalidatePath(`/clinic/session/${sessionToken}`)
-  return { queueNumber: newNumber }
+    const newNumber = Math.max((maxEntry?.queue_number || 0) + 1, queue.current_number + 1)
+    
+    // Insert entry
+    const { error } = await adminSupabase
+      .from("queue_entries")
+      .insert({
+        queue_id: queue.id,
+        patient_id: provider?.user_id || "00000000-0000-0000-0000-000000000000", // proxy
+        queue_number: newNumber,
+        status: "ready",
+        last_ready_at: new Date().toISOString(),
+        visit_reason: `Walk-in: ${patientName}`,
+        travel_category: "here",
+        source: "walk_in",
+      })
+
+    if (!error) {
+      // Update queue
+      await adminSupabase
+        .from("queues")
+        .update({ current_number: newNumber })
+        .eq("id", queue.id)
+
+      revalidatePath(`/clinic/session/${sessionToken}`)
+      return { queueNumber: newNumber }
+    }
+
+    if (error.code !== '23505' || attempt === MAX_RETRIES - 1) {
+      return { error: error.message }
+    }
+  }
+
+  return { error: "Failed to add walk-in due to high traffic" }
 }
 
 export async function receptionistMarkPatientReady(sessionToken: string, entryId: string) {

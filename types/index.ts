@@ -198,3 +198,119 @@ export interface Notification {
   metadata?: Record<string, unknown>;
   createdAt: string;
 }
+
+// ============================================================
+// Feature 1 — Future Reservations
+// ============================================================
+
+export type ReservationStatus =
+  | "pending"
+  | "confirmed"
+  | "converted"
+  | "cancelled"
+  | "no_show";
+
+export interface QueueDayLimit {
+  id: string;
+  providerId: string;
+  dayOfWeek: number;
+  maxReservations: number;
+  advanceDays: number;
+  isActive: boolean;
+}
+
+export interface Reservation {
+  id: string;
+  providerId: string;
+  patientId: string;
+  reservedDate: string;     // "YYYY-MM-DD"
+  reservationNumber: number;
+  status: ReservationStatus;
+  visitReason?: string;
+  notes?: string;
+  convertedEntryId?: string;
+  cancelledAt?: string;
+  createdAt: string;
+  // Joined
+  patient?: User;
+}
+
+/** What a patient sees when browsing upcoming available days */
+export interface DayAvailability {
+  date: string;             // "YYYY-MM-DD"
+  dayOfWeek: number;
+  scheduleStart: string;    // "09:00"
+  scheduleEnd: string;      // "17:00"
+  reservationCount: number;
+  maxReservations: number;
+  isFull: boolean;
+  crowdLevel: "low" | "moderate" | "high" | "full";
+  myReservation?: Reservation; // set if the current user already reserved this day
+}
+
+// ============================================================
+// Feature 2 — Doctor Services & Billing
+// ============================================================
+
+export interface Service {
+  id: string;
+  providerId: string;
+  nameAr: string;
+  nameEn?: string;
+  price: number;
+  estimatedDuration: number; // minutes
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export interface EntryService {
+  id: string;
+  entryId: string;
+  serviceId: string;
+  quantity: number;
+  priceOverride?: number;
+  assignedAt: string;
+  assignedBy: string;
+  // Resolved from join
+  service?: Service;
+  effectivePrice: number;  // priceOverride ?? service.price
+  subtotal: number;        // effectivePrice * quantity
+}
+
+// ============================================================
+// Feature 3 — Visit Notes (Internal + Patient Summary)
+// ============================================================
+
+/** Full note — only accessible by the provider */
+export interface VisitNote {
+  id: string;
+  entryId: string;
+  patientId: string;
+  providerId: string;
+  chiefComplaint?: string;
+  internalNotes?: string;
+  prescription?: string;
+  followUpInstructions?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Patient-visible summary — served via patient_visit_summaries view */
+export interface PatientVisitSummary {
+  id: string;
+  entryId: string;
+  patientId: string;
+  providerId: string;
+  prescription?: string;
+  followUpInstructions?: string;
+  createdAt: string;
+  services: Array<{
+    nameAr: string;
+    nameEn?: string;
+    quantity: number;
+    price: number;
+    subtotal: number;
+  }>;
+  totalAmount: number;
+}
+

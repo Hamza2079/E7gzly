@@ -4,10 +4,10 @@ import { createServer } from "@/lib/supabase/server"
 import Navbar from "@/components/queue/Navbar"
 import DoctorFilters from "@/components/directory/DoctorFilters"
 import FavoriteButton from "@/components/directory/FavoriteButton"
-import { MapPin, SlidersHorizontal, MonitorSmartphone } from "lucide-react"
+import { MapPin, Users, Clock, SlidersHorizontal, MonitorSmartphone } from "lucide-react"
 
 export const metadata = {
-  title: "Directory | E7gzly",
+  title: "الأطباء | إحجزلي",
 }
 
 type SearchParams = Promise<{ [key: string]: string | undefined }>
@@ -52,23 +52,38 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Sear
   // Fetch today's queues for all providers
   const { data: queues } = await supabase
     .from("queues")
-    .select("id, provider_id, status, avg_duration")
+    .select("id, provider_id, status, avg_duration, current_number")
     .eq("date", today)
 
   // Map queues and calculate waits
   const queueMap = new Map()
   if (queues) {
     for (const q of queues) {
-      const { count } = await supabase
+      // Count active patients (waiting to be served)
+      const { count: totalActive } = await supabase
         .from("queue_entries")
         .select("*", { count: "exact", head: true })
         .eq("queue_id", q.id)
-        .in("status", ["waiting", "in_progress"])
-        
-      const waitingCount = count || 0
+        .in("status", ["not_ready", "ready", "called", "in_progress"])
+
+      // Count patients physically at clinic (ready)
+      const { count: readyCount } = await supabase
+        .from("queue_entries")
+        .select("*", { count: "exact", head: true })
+        .eq("queue_id", q.id)
+        .in("status", ["ready", "called", "in_progress"])
+
+      const waiting = totalActive || 0
+      const atClinic = readyCount || 0
+      const waitMins = waiting * (q.avg_duration || 10)
+      const nextNumber = (q.current_number || 0) + 1
+
       queueMap.set(q.provider_id, {
         status: q.status,
-        waitMins: waitingCount * (q.avg_duration || 10)
+        waitMins,
+        waiting,
+        atClinic,
+        nextNumber,
       })
     }
   }
@@ -90,11 +105,11 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Sear
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div>
             <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">
-              Find Your <span className="text-blue-600">Specialist</span>
+              ابحث عن <span className="text-blue-600">طبيبك المناسب</span>
             </h1>
             <p className="mt-2 text-gray-500">
-              Book appointments with top-rated medical professionals.<br />
-              Real-time queue status and clinical availability.
+              احجز موعدك مع أفضل الأطباء المتخصصين.<br />
+              حالة الطابور مباشرة وتوفر العيادة الآن.
             </p>
           </div>
           <div className="flex-1 flex justify-end">
@@ -107,20 +122,22 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Sear
           
           {(!providers || providers.length === 0) ? (
             <div className="col-span-full py-20 text-center text-gray-400">
-              No doctors found matching criteria.
+              لا يوجد أطباء يطابقون معايير البحث.
             </div>
           ) : (
             providers.map((provider, index) => {
               const queue = queueMap.get(provider.id)
               const status = queue?.status || "closed"
-              const waitTime = queue ? `${queue.waitMins} mins` : "Unavailable"
+              const waitMins = queue?.waitMins ?? null
+              const waiting = queue?.waiting ?? null
+              const atClinic = queue?.atClinic ?? null
               const placeholderImg = placeholders[index % placeholders.length]
               const u = Array.isArray(provider.users) ? provider.users[0] : provider.users;
               const isFavorite = favorites.has(provider.id);
 
               return (
                 <div key={provider.id} className="group bg-white rounded-3xl overflow-hidden shadow-sm ring-1 ring-gray-100 transition-shadow hover:shadow-md flex flex-col relative">
-                  {/* Global Image Asset Layer */}
+                  {/* Image */}
                   <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
                     <img 
                       src={u?.avatar_url || placeholderImg} 
@@ -128,47 +145,63 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Sear
                       className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
 
-                    {/* Left Absolute Action - Favorite */}
-                    <div className="absolute top-4 left-4 z-10">
+                    {/* Favorite button */}
+                    <div className="absolute top-4 right-4 z-10">
                       {user && <FavoriteButton providerId={provider.id} initialFavorite={isFavorite} />}
                     </div>
                     
-                    {/* Floating Status Pill */}
-                    <div className="absolute top-4 right-4">
+                    {/* Status Pill */}
+                    <div className="absolute top-4 left-4">
                       {status === "open" && (
                         <div className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 backdrop-blur-md bg-opacity-90">
-                          <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> OPEN
+                          <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> مفتوح
                         </div>
                       )}
                       {status === "paused" && (
                         <div className="bg-yellow-100 text-yellow-700 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 backdrop-blur-md bg-opacity-90">
-                          <span className="h-1.5 w-1.5 rounded-full bg-yellow-500" /> PAUSED
+                          <span className="h-1.5 w-1.5 rounded-full bg-yellow-500" /> استراحة
                         </div>
                       )}
                       {status === "closed" && (
                         <div className="bg-red-100 text-red-700 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 backdrop-blur-md bg-opacity-90">
-                          <span className="h-1.5 w-1.5 rounded-full bg-red-500" /> CLOSED
+                          <span className="h-1.5 w-1.5 rounded-full bg-red-500" /> مغلق
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {/* Datapoints Layer */}
+                  {/* Info */}
                   <div className="p-5 flex flex-col flex-1">
                     <p className="text-[10px] font-bold tracking-widest text-blue-500 uppercase mb-1">
-                      {provider.specialties?.name || "General Practice"}
+                      {provider.specialties?.name || "طب عام"}
                     </p>
                     <h3 className="font-bold text-gray-900 text-lg">
-                      Dr. {u?.full_name}
+                      د. {u?.full_name}
                     </h3>
-                    <div className="flex items-center gap-1 text-sm text-gray-500 mt-1 mb-5">
-                      <MapPin className="h-3.5 w-3.5" /> {provider.city || "Clinic Location"}
+                    <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
+                      <MapPin className="h-3.5 w-3.5" /> {provider.city || "موقع العيادة"}
                     </div>
+
+                    {/* Queue stats (only if queue is open) */}
+                    {status === "open" && waiting !== null && (
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <div className="bg-gray-50 rounded-xl px-3 py-2 text-center">
+                          <p className="text-base font-black text-gray-900">{waiting}</p>
+                          <p className="text-[10px] text-gray-400 font-bold">في الانتظار</p>
+                        </div>
+                        <div className="bg-blue-50 rounded-xl px-3 py-2 text-center">
+                          <p className="text-base font-black text-blue-700">{atClinic}</p>
+                          <p className="text-[10px] text-blue-400 font-bold">في العيادة</p>
+                        </div>
+                      </div>
+                    )}
                     
                     <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between">
                       <div>
-                        <p className="text-[10px] uppercase font-bold text-gray-400">Est. Wait</p>
-                        <p className="text-sm font-bold text-gray-900">{waitTime}</p>
+                        <p className="text-[10px] uppercase font-bold text-gray-400">وقت الانتظار</p>
+                        <p className="text-sm font-bold text-gray-900">
+                          {status === "open" && waitMins !== null ? `~${waitMins} دقيقة` : "غير متاح"}
+                        </p>
                       </div>
                       <Link 
                         href={`/doctors/${provider.id}`}
@@ -178,7 +211,7 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Sear
                             : "bg-gray-100 text-gray-400 pointer-events-none"
                         }`}
                       >
-                        {status === "closed" ? "Closed Today" : "Book Now"}
+                        {status === "closed" ? "مغلق اليوم" : "احجز الآن"}
                       </Link>
                     </div>
                   </div>
@@ -187,20 +220,20 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Sear
             })
           )}
 
-          {/* Marketing Card (Span 2) */}
+          {/* Marketing Card */}
           <div className="col-span-1 lg:col-span-2 rounded-3xl bg-blue-600 p-8 flex flex-col justify-between relative overflow-hidden text-white shadow-xl">
-             <div className="absolute -right-10 -bottom-10 opacity-20 pointer-events-none">
+             <div className="absolute -left-10 -bottom-10 opacity-20 pointer-events-none">
                 <MonitorSmartphone className="h-64 w-64" />
              </div>
              <div className="relative z-10 w-3/4">
-               <h3 className="text-2xl font-bold mb-2">Can't wait?</h3>
+               <h3 className="text-2xl font-bold mb-2">لا تنتظر في العيادة</h3>
                <p className="text-sm text-blue-100 leading-relaxed">
-                 Book a virtual consultation with our on-call specialists right now and get diagnosed within minutes.
+                 احجز استشارة افتراضية مع أطبائنا المتخصصين الآن واحصل على تشخيصك في دقائق.
                </p>
              </div>
              <div className="relative z-10 mt-6 lg:mt-0 pt-4">
                <button className="bg-white text-blue-600 px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-gray-50 transition shadow-sm">
-                 <MonitorSmartphone className="h-4 w-4" /> Instant Virtual Care
+                 <MonitorSmartphone className="h-4 w-4" /> استشارة فورية أونلاين
                </button>
              </div>
           </div>

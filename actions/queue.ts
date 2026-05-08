@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// @ts-nocheck — Remove this after running migration 010 and regenerating types
 "use server"
 
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { createServer } from "@/lib/supabase/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
+import { convertReservationsToQueue } from "@/actions/reservations"
 
 // ============================================================
 // HELPERS
@@ -46,6 +46,9 @@ export async function upsertSchedule(formData: FormData) {
   const queueWindow = parseInt(formData.get("queueWindow") as string) || 10
   const gracePeriod = parseInt(formData.get("gracePeriod") as string) || 3
   const isActive = formData.get("isActive") === "true"
+  
+  const advanceDays = parseInt(formData.get("advanceDays") as string) || 7
+  const maxReservations = parseInt(formData.get("maxReservations") as string) || 20
 
   const { error } = await supabase
     .from("doctor_schedules")
@@ -64,8 +67,23 @@ export async function upsertSchedule(formData: FormData) {
       onConflict: "provider_id,day_of_week",
     })
 
-  if (error) throw new Error(error.message)
+  if (error) return { error: error.message }
+
+  // Also upsert the day limits for future reservations to keep them synchronized
+  const { error: limitError } = await supabase
+    .from("queue_day_limits")
+    .upsert({
+      provider_id: provider.id,
+      day_of_week: dayOfWeek,
+      max_reservations: maxReservations,
+      advance_days: advanceDays,
+      is_active: isActive,
+    }, { onConflict: "provider_id,day_of_week" })
+
+  if (limitError) return { error: limitError.message }
+
   revalidatePath("/dashboard/settings")
+  return { success: true }
 }
 
 export async function getSchedules(providerId: string) {
@@ -120,6 +138,10 @@ export async function openQueue() {
         session_expires_at: endOfDay.toISOString() 
       })
       .eq("id", existing.id)
+
+    // Auto-convert any pending reservations for today
+    await convertReservationsToQueue(existing.id, provider.id, today)
+
     revalidatePath("/dashboard/queue")
     return { queueId: existing.id }
   }
@@ -138,6 +160,10 @@ export async function openQueue() {
     .single()
 
   if (error) return { error: error.message }
+
+  // Auto-convert any pending reservations for today into queue entries
+  await convertReservationsToQueue(queue.id, provider.id, today)
+
   revalidatePath("/dashboard/queue")
   return { queueId: queue.id }
 }
@@ -364,53 +390,62 @@ export async function joinQueue(
   }
 
   // 5. Atomically increment queue number and insert
-  // Calculate true next number directly from actual queue entries to guarantee sequence safety
-  const { data: maxEntry } = await supabase
-    .from("queue_entries")
-    .select("queue_number")
-    .eq("queue_id", queueId)
-    .order("queue_number", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  const newNumber = Math.max((maxEntry?.queue_number || 0) + 1, queue.current_number + 1)
-
-  // Use admin client securely to bypass patient RLS blocking on the queues table updates
-  const adminSupabase = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+  // We use a retry loop to handle exact-millisecond race conditions (Postgres unique constraint violation)
+  const MAX_RETRIES = 3
   
-  await adminSupabase
-    .from("queues")
-    .update({ current_number: newNumber })
-    .eq("id", queueId)
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const { data: maxEntry } = await supabase
+      .from("queue_entries")
+      .select("queue_number")
+      .eq("queue_id", queueId)
+      .order("queue_number", { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
+    const newNumber = Math.max((maxEntry?.queue_number || 0) + 1, queue.current_number + 1)
 
-  // Determine initial readiness
-  const isReady = travelCategory === "here"
-  
-  // Insert the entry
-  const { data: entry, error } = await supabase
-    .from("queue_entries")
-    .insert({
-      queue_id: queueId,
-      patient_id: user.id,
-      queue_number: newNumber,
-      status: isReady ? "ready" : "not_ready",
-      last_ready_at: isReady ? new Date().toISOString() : null,
-      visit_reason: visitReason || null,
-      travel_category: travelCategory,
-      source: "app",
-    })
-    .select("id, queue_number")
-    .single()
+    // Determine initial readiness
+    const isReady = travelCategory === "here"
+    
+    // Insert the entry
+    const { data: entry, error } = await supabase
+      .from("queue_entries")
+      .insert({
+        queue_id: queueId,
+        patient_id: user.id,
+        queue_number: newNumber,
+        status: isReady ? "ready" : "not_ready",
+        last_ready_at: isReady ? new Date().toISOString() : null,
+        visit_reason: visitReason || null,
+        travel_category: travelCategory,
+        source: "app",
+      })
+      .select("id, queue_number")
+      .single()
 
-  if (error) return { error: error.message }
+    if (!error) {
+      // Use admin client securely to bypass patient RLS blocking on the queues table updates
+      const adminSupabase = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+      await adminSupabase
+        .from("queues")
+        .update({ current_number: newNumber })
+        .eq("id", queueId)
 
-  return {
-    entryId: entry.id,
-    queueNumber: entry.queue_number,
-    position: (waitingAhead || 0) + 1,
-    estimatedWait,
+      revalidatePath("/dashboard/queue")
+      return {
+        entryId: entry.id,
+        queueNumber: entry.queue_number,
+        position: (waitingAhead || 0) + 1,
+        estimatedWait,
+      }
+    }
+
+    if (error.code !== '23505' || attempt === MAX_RETRIES - 1) {
+      return { error: error.message }
+    }
   }
+
+  return { error: "Queue is too busy right now. Please try again." }
 }
 
 export async function leaveQueue(entryId: string) {
@@ -457,13 +492,12 @@ export async function callNextPatient(queueId: string) {
 
   const gracePeriod = scheduleRow?.grace_period || 3
 
-  // Find next READY patient strictly ordered by last_ready_at ASC, with queue_number as tie-breaker
+  // Find next READY patient strictly ordered by queue_number ASC (Reservation Priority)
   const { data: nextEntry } = await supabase
     .from("queue_entries")
     .select("*, users(full_name, phone)")
     .eq("queue_id", queueId)
     .eq("status", "ready")
-    .order("last_ready_at", { ascending: true })
     .order("queue_number", { ascending: true })
     .limit(1)
     .single()

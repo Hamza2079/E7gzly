@@ -60,6 +60,7 @@ export default async function Navbar() {
                   </button>
                   <div className="absolute right-0 top-full hidden w-48 flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl group-hover:flex">
                     <Link href="/profile" className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Profile Settings</Link>
+                    <Link href="/my-visits" className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">My Visits</Link>
                     <Link href="/favorites" className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Saved Doctors</Link>
                     <Link href="/my-reviews" className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">My Reviews</Link>
                     <Link href="/notifications" className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Notifications</Link>

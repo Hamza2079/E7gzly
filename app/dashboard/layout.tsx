@@ -41,6 +41,7 @@ export default async function DashboardLayout({
 
   const navItems = [
     { href: "/dashboard/queue", icon: ListOrdered, label: "Queue" },
+    { href: "/dashboard/services", icon: Stethoscope, label: "Services" },
     { href: "/dashboard/reports", icon: BarChart3, label: "Reports" },
     { href: "/dashboard/reviews", icon: Star, label: "Reviews" },
     { href: "/dashboard/profile", icon: User, label: "Profile Settings" },

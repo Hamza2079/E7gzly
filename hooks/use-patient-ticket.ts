@@ -21,7 +21,8 @@ export type DoctorStatusLabel =
 
 export interface PatientTicketState {
   // Core ticket info
-  position: number
+  patientsBeforeYou: number
+  readyBeforeYou: number
   estimatedWaitMinutes: number
   estimatedCallTime: string | null // "11:05 AM"
 
@@ -139,29 +140,27 @@ export function usePatientTicket(
   const state = useMemo<PatientTicketState>(() => {
     const avgDuration = queueData?.avgDuration || 10
 
-    // Position: count how many READY entries have an earlier last_ready_at
-    // Or if last_ready_at is identical, tie-break by queue_number
-    let position = 0
-    if (entryStatus === "ready" && (liveEntry?.last_ready_at || myEntryFromList?.last_ready_at)) {
-      const myReadyAt = liveEntry?.last_ready_at || myEntryFromList?.last_ready_at
-      const myDate = myReadyAt ? new Date(myReadyAt).getTime() : 0
-      
-      const readyEntries = waitingEntries.filter(e => e.status === "ready" && e.last_ready_at)
-      const peopleAhead = readyEntries.filter(e => {
-        const theirDate = new Date(e.last_ready_at!).getTime()
-        if (theirDate < myDate) return true
-        if (theirDate === myDate && e.queue_number < queueNumber) return true
-        return false
-      })
-      position = peopleAhead.length + 1
-    }
+    // Unified Queue Calculation (Reservation Priority)
+    // We only care about people with a queue_number smaller than ours who are still active.
+    const activeBeforeMe = waitingEntries.filter(
+      (e) => e.queue_number < queueNumber && ["not_ready", "ready", "in_progress"].includes(e.status)
+    )
+
+    // And also include the currently serving patient if they aren't already in the list
+    const currentlyServing = waitingEntries.find((e) => e.status === "in_progress")
+    const hasServingOutsideList = currentlyServing && currentlyServing.queue_number >= queueNumber
+
+    const patientsBeforeYou = activeBeforeMe.length + (hasServingOutsideList ? 1 : 0)
+    const readyBeforeYou = activeBeforeMe.filter((e) => e.status === "ready").length + (hasServingOutsideList ? 1 : 0)
 
     // Estimated wait in minutes
-    const estimatedWaitMinutes = position * avgDuration
+    // Wait time is based on how many people are BEFORE us. If we are not ready, we wait for X. If we are ready, we wait for Y.
+    const relevantCount = entryStatus === "ready" ? readyBeforeYou : patientsBeforeYou
+    const estimatedWaitMinutes = relevantCount * avgDuration
 
     // Estimated call time as a clock string
     let estimatedCallTime: string | null = null
-    if (position > 0 && estimatedWaitMinutes > 0) {
+    if (relevantCount > 0 && estimatedWaitMinutes > 0) {
       const callDate = new Date(Date.now() + estimatedWaitMinutes * 60 * 1000)
       // Add break time if doctor is currently on break
       if (breakRemainingSeconds && breakRemainingSeconds > 0) {
@@ -191,7 +190,8 @@ export function usePatientTicket(
     const doctorStatus = rawDoctorStatus as DoctorStatusLabel
 
     return {
-      position,
+      patientsBeforeYou,
+      readyBeforeYou,
       estimatedWaitMinutes,
       estimatedCallTime,
       doctorStatus,
@@ -199,8 +199,8 @@ export function usePatientTicket(
       breakRemainingSeconds: breakRemainingSeconds,
       delayMinutes: queueData?.delayMinutes || 0,
       doctorMessage: queueData?.doctorMessage || null,
-      isNextInLine: position === 1,
-      isAlmostReady: position <= 2 && position > 0,
+      isNextInLine: entryStatus === "ready" && readyBeforeYou === 0,
+      isAlmostReady: entryStatus === "ready" && readyBeforeYou <= 2,
       entryStatus,
       graceRemainingSeconds,
       currentServing: queueData?.currentServing || null,

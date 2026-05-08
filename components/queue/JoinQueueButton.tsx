@@ -52,7 +52,7 @@ export default function JoinQueueButton({ queueId, disabled, disabledReason }: J
         onClick={() => setShowForm(true)}
         className="w-full rounded-xl bg-blue-600 py-3.5 text-base font-semibold text-white transition-colors hover:bg-blue-700 shadow-md"
       >
-        Join Queue
+        احجز مكانك
       </button>
     )
   }
@@ -64,7 +64,7 @@ export default function JoinQueueButton({ queueId, disabled, disabledReason }: J
       )}
 
       <div>
-        <label className="block text-sm font-bold text-gray-900 mb-2">Are you at the clinic?</label>
+        <label className="block text-sm font-bold text-gray-900 mb-2">هل أنت في العيادة؟</label>
         <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
@@ -76,7 +76,7 @@ export default function JoinQueueButton({ queueId, disabled, disabledReason }: J
             }`}
           >
             <span className="text-lg">🏥</span>
-            Yes, I&apos;m here
+            نعم، أنا هنا
           </button>
           <button
             type="button"
@@ -88,17 +88,17 @@ export default function JoinQueueButton({ queueId, disabled, disabledReason }: J
             }`}
           >
             <span className="text-lg">🚶</span>
-            No, on my way
+            لا، في الطريق
           </button>
         </div>
       </div>
 
       <div>
-        <label className="block text-sm font-bold text-gray-900 mb-2">Visit Reason <span className="text-gray-400 font-normal">(optional)</span></label>
+        <label className="block text-sm font-bold text-gray-900 mb-2">سبب الزيارة <span className="text-gray-400 font-normal">(اختياري)</span></label>
         <input
           name="visitReason"
           type="text"
-          placeholder="e.g. Follow-up, Cold symptoms..."
+          placeholder="مثال: متابعة، زكام، كشف عام..."
           className="block w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition"
         />
       </div>
@@ -109,14 +109,14 @@ export default function JoinQueueButton({ queueId, disabled, disabledReason }: J
           onClick={() => setShowForm(false)}
           className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50 transition"
         >
-          Cancel
+          إلغاء
         </button>
         <button
           type="submit"
           disabled={isPending}
           className="flex-1 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white shadow-md hover:bg-blue-700 disabled:opacity-50 transition"
         >
-          {isPending ? "Joining..." : "Confirm"}
+          {isPending ? "جاري الحجز..." : "تأكيد الحجز"}
         </button>
       </div>
     </form>

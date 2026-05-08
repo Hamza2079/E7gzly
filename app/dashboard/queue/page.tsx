@@ -55,6 +55,7 @@ export default async function DoctorQueueDashboard() {
     <div className="w-full">
       <DoctorQueuePanel
         queueId={queue?.id || null}
+        providerId={provider.id}
         doctorName={provider.users.full_name}
         specialty={provider.specialties?.name || "General Practice"}
         todayServed={todayServed}

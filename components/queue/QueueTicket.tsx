@@ -85,10 +85,10 @@ export default function QueueTicket({
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
           <AlertTriangle className="h-8 w-8 text-gray-400" />
         </div>
-        <h2 className="text-xl font-bold text-gray-900">Queue Cancelled</h2>
-        <p className="mt-2 text-sm text-gray-500">You have left the queue.</p>
+        <h2 className="text-xl font-bold text-gray-900">تم إلغاء الطابور</h2>
+        <p className="mt-2 text-sm text-gray-500">لقد غادرت الطابور.</p>
         <Link href="/doctors" className="mt-4 inline-block text-sm font-medium text-blue-600 hover:underline">
-          Browse doctors
+          تصفح الأطباء
         </Link>
       </div>
     )
@@ -97,15 +97,19 @@ export default function QueueTicket({
   if (ticket.entryStatus === "no_show" || ticket.entryStatus === "cancelled") {
     return (
       <div className="mx-auto max-w-md rounded-2xl bg-white p-8 text-center shadow-lg">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
-          <AlertTriangle className="h-8 w-8 text-gray-400" />
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
+          <AlertTriangle className="h-8 w-8 text-red-400" />
         </div>
         <h2 className="text-xl font-bold text-gray-900">
-          {ticket.entryStatus === "no_show" ? "Marked No-show" : "Queue Cancelled"}
+          {ticket.entryStatus === "no_show" ? "فاتك دورك" : "تم إلغاء الحجز"}
         </h2>
-        <p className="mt-2 text-sm text-gray-500">This ticket is no longer active.</p>
+        <p className="mt-2 text-sm text-gray-500">
+          {ticket.entryStatus === "no_show" 
+            ? "لم ترد في الوقت المحدد. يمكنك الحجز مجدداً." 
+            : "لقد غادرت الطابور بنجاح."}
+        </p>
         <Link href="/doctors" className="mt-4 inline-block text-sm font-medium text-blue-600 hover:underline">
-          Browse doctors
+          تصفح الأطباء
         </Link>
       </div>
     )
@@ -259,93 +263,63 @@ export default function QueueTicket({
             #{String(queueNumber).padStart(3, "0")}
           </p>
 
-          {/* ── CALLED STATE ── */}
-          {ticket.entryStatus === "called" && (
-            <div className="mt-4 space-y-3">
-              <div className="rounded-xl bg-green-50 border border-green-200 p-4">
-                <p className="text-lg font-bold text-green-700">🔔 It&apos;s your turn!</p>
-                {ticket.graceRemainingSeconds !== null && ticket.graceRemainingSeconds > 0 && (
-                  <div className="mt-2">
-                    <p className="text-sm text-green-600">
-                      Please arrive within{" "}
-                      <span className="font-mono font-bold text-green-800">
-                        {Math.floor(ticket.graceRemainingSeconds / 60)}:{String(ticket.graceRemainingSeconds % 60).padStart(2, "0")}
-                      </span>
-                    </p>
-                    {/* Grace progress bar */}
-                    <div className="mt-2 h-2 w-full rounded-full bg-green-100 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-green-500 transition-all duration-1000 ease-linear"
-                        style={{ width: `${Math.min(100, (ticket.graceRemainingSeconds / 180) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-              {/* Response buttons */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleRespondToCall("coming")}
-                  disabled={isPending}
-                  className="flex-1 rounded-xl bg-green-600 py-3 text-sm font-bold text-white hover:bg-green-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  <Navigation className="h-4 w-4" /> I&apos;m heading in
-                </button>
-                <button
-                  onClick={() => handleRespondToCall("need_time")}
-                  disabled={isPending}
-                  className="flex-1 rounded-xl border border-orange-200 bg-orange-50 py-3 text-sm font-bold text-orange-700 hover:bg-orange-100 transition disabled:opacity-50"
-                >
-                  Need more time
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* ── IN PROGRESS STATE ── */}
           {ticket.entryStatus === "in_progress" && (
             <div className="mt-4 rounded-xl bg-blue-50 border border-blue-200 p-4">
               <CheckCircle className="mx-auto h-8 w-8 text-blue-600" />
-              <p className="mt-2 text-lg font-bold text-blue-700">Consultation in progress</p>
-              <p className="text-sm text-blue-500 mt-1">You are currently with the doctor</p>
+              <p className="mt-2 text-lg font-bold text-blue-700">جاري الكشف الطبي</p>
+              <p className="text-sm text-blue-500 mt-1">أنت الآن مع الدكتور</p>
             </div>
           )}
 
-          {/* ── GET READY ALERT ── */}
-          {ticket.entryStatus === "ready" && ticket.isNextInLine && (
-            <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-4 animate-pulse">
-              <p className="text-lg font-bold text-amber-700">⚡ Get ready!</p>
-              <p className="text-sm text-amber-600">You&apos;re next in line. Make sure you&apos;re at the clinic.</p>
+          {/* ── CALLED STATE ── */}
+          {ticket.entryStatus === "called" && (
+            <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-5 text-center">
+              <p className="text-xl font-black text-amber-700">✨ جاء دورك!</p>
+              <p className="text-sm text-amber-600 mt-1 font-medium">توجه إلى غرفة الكشف الآن.</p>
             </div>
           )}
 
           {/* ── NOT READY STATE ── */}
           {ticket.entryStatus === "not_ready" && (
             <div className="mt-4 space-y-3">
-              <div className="rounded-xl bg-gray-50 border border-gray-200 p-4">
-                <p className="text-base font-bold text-gray-700 text-center">You are not in the active queue yet.</p>
-                <p className="text-sm text-gray-500 text-center mt-1">Please mark yourself as ready when you arrive or are nearby.</p>
+              <div className="rounded-xl bg-gray-50 border border-gray-200 p-5">
+                <p className="text-lg font-bold text-gray-900 text-center">
+                  يوجد <span className="text-blue-600">{ticket.patientsBeforeYou}</span> مريض قبلك.
+                </p>
+                <p className="text-sm text-gray-600 text-center mt-1 font-medium">
+                  {ticket.readyBeforeYou} منهم في العيادة الآن.
+                </p>
+                <div className="mt-4 text-sm font-bold text-amber-700 bg-amber-50 p-3 rounded-xl text-center border border-amber-100 shadow-sm">
+                  سيتم تقديمك بمجرد وصولك.
+                </div>
               </div>
               <button
                 onClick={handleMarkReady}
                 disabled={isPending}
-                className="w-full rounded-xl bg-blue-600 py-3 text-sm font-bold text-white hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-md"
               >
-                <MapPin className="h-4 w-4" /> I&apos;m Here / I&apos;m Ready
+                <MapPin className="h-5 w-5" /> أنا هنا / جاهز
               </button>
             </div>
           )}
         </div>
 
-        {/* ── WAITING STATS ── */}
+        {/* ── WAITING STATS (READY) ── */}
         {ticket.entryStatus === "ready" && (
           <>
-            <div className="grid grid-cols-3 gap-px border-t bg-gray-100">
-              <div className="bg-white px-4 py-4 text-center">
-                <Users className="mx-auto h-4 w-4 text-gray-400 mb-1" />
-                <p className="text-lg font-bold text-gray-900">{ticket.position}</p>
-                <p className="text-[10px] text-gray-500 font-medium">Position</p>
-              </div>
+            <div className="px-6 py-5 bg-blue-50 border-t border-blue-100 text-center">
+              {ticket.readyBeforeYou === 0 ? (
+                <h3 className="text-lg font-bold text-blue-800">أنت التالي بعد المريض الحالي.</h3>
+              ) : (
+                <h3 className="text-lg font-bold text-blue-800">
+                  يوجد <span className="text-blue-600 text-xl mx-1">{ticket.readyBeforeYou}</span> مريض جاهز قبلك.
+                </h3>
+              )}
+              <p className="text-sm font-bold text-blue-600 mt-1">دورك قريب.</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-px border-t bg-gray-100">
               <div className="bg-white px-4 py-4 text-center">
                 <Clock className="mx-auto h-4 w-4 text-gray-400 mb-1" />
                 <p className="text-lg font-bold text-gray-900">

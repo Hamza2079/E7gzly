@@ -28,12 +28,17 @@ export default async function DoctorSettingsPage() {
     )
   }
 
+  const { data: limits } = await supabase
+    .from("queue_day_limits")
+    .select("*")
+    .eq("provider_id", provider.id)
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Schedule Settings</h1>
         <p className="mt-1 text-gray-500">
-          Configure your weekly working hours. Your queue will auto-open and close based on this schedule.
+          Configure your weekly working hours and future reservation limits. Your queue will auto-open and close based on this schedule.
         </p>
       </div>
 

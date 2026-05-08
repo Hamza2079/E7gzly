@@ -7,6 +7,7 @@ import {
   sendDoctorMessage, clearDoctorMessage, extendGracePeriod
 } from "@/actions/queue"
 import { regenerateReceptionistSession } from "@/actions/receptionist"
+import { getServicesForProvider } from "@/actions/services"
 import { useState, useTransition, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import {
@@ -14,9 +15,13 @@ import {
   Coffee, MessageSquare, Send, X, MapPin, Car, Home, Navigation,
   AlertTriangle, Zap, Timer
 } from "lucide-react"
+import PostConsultationModal from "@/components/services/PostConsultationModal"
+import VisitHistoryPanel from "@/components/visit-notes/VisitHistoryPanel"
+import type { Service } from "@/types"
 
 interface DoctorQueuePanelProps {
   queueId: string | null
+  providerId: string
   doctorName: string
   specialty: string
   todayServed: number
@@ -31,7 +36,7 @@ const TRAVEL_ICONS: Record<string, { icon: typeof MapPin; color: string; label: 
   very_far: { icon: Home,       color: "text-red-700",    label: "40+ min" },
 }
 
-export default function DoctorQueuePanel({ queueId, doctorName, specialty, todayServed, todayNoShows }: DoctorQueuePanelProps) {
+export default function DoctorQueuePanel({ queueId, providerId, doctorName, specialty, todayServed, todayNoShows }: DoctorQueuePanelProps) {
   const { queueData, waitingEntries, currentPatient, refetch } = useQueueRealtime(queueId)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
@@ -39,6 +44,8 @@ export default function DoctorQueuePanel({ queueId, doctorName, specialty, today
   const [showBreakPicker, setShowBreakPicker] = useState(false)
   const [broadcastMsg, setBroadcastMsg] = useState("")
   const [showBroadcast, setShowBroadcast] = useState(false)
+  const [showPostConsult, setShowPostConsult] = useState(false)
+  const [providerServices, setProviderServices] = useState<Service[]>([])
 
   const calledPatient = currentPatient?.status === "called" ? currentPatient : null
   const inProgressPatient = currentPatient?.status === "in_progress" ? currentPatient : null
@@ -54,6 +61,16 @@ export default function DoctorQueuePanel({ queueId, doctorName, specialty, today
       await action()
       refetch()
     })
+  }
+
+  const handleOpenPostConsult = () => {
+    // Lazily fetch services when the modal is opened
+    getServicesForProvider(providerId).then(setProviderServices)
+    setShowPostConsult(true)
+  }
+
+  const handleCompleteFromModal = (entryId: string) => {
+    handleAction(() => completePatient(entryId))
   }
 
   // Auto-skip logic
@@ -89,6 +106,7 @@ export default function DoctorQueuePanel({ queueId, doctorName, specialty, today
 
   return (
     <div className="w-full">
+      {/* ... existing queue panel content ... */}
       {/* Header row */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
@@ -279,9 +297,9 @@ export default function DoctorQueuePanel({ queueId, doctorName, specialty, today
             <div className="flex flex-col gap-3 min-w-[140px]">
               {activePatient ? (
                 inProgressPatient ? (
-                  <button onClick={() => handleAction(() => completePatient(inProgressPatient.id))} disabled={isPending}
+                  <button onClick={handleOpenPostConsult} disabled={isPending}
                     className="bg-blue-600 text-white rounded-xl py-3 px-4 font-bold text-sm shadow-sm hover:bg-blue-700 transition flex items-center justify-center gap-2">
-                    <CheckCircle className="h-4 w-4" /> Complete
+                    <CheckCircle className="h-4 w-4" /> إنهاء الكشف
                   </button>
                 ) : (
                   <button onClick={() => handleAction(() => startConsultation(calledPatient!.id))} disabled={isPending}
@@ -311,6 +329,16 @@ export default function DoctorQueuePanel({ queueId, doctorName, specialty, today
               )}
             </div>
           </div>
+
+          {/* ACTIVE PATIENT HISTORY (Visible only during consultation) */}
+          {activePatient && (
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8">
+              <VisitHistoryPanel 
+                patientId={activePatient.patient_id} 
+                providerId={providerId} 
+              />
+            </div>
+          )}
 
           {/* WAITING LIST */}
           <div className="flex items-center justify-between mt-8 mb-4">
@@ -443,6 +471,19 @@ export default function DoctorQueuePanel({ queueId, doctorName, specialty, today
           </div>
         </div>
       </div>
+      {showPostConsult && inProgressPatient && (
+        <PostConsultationModal
+          entryId={inProgressPatient.id}
+          patientName={inProgressPatient.users?.full_name || "مريض"}
+          queueNumber={inProgressPatient.queue_number}
+          availableServices={providerServices}
+          onClose={() => setShowPostConsult(false)}
+          onComplete={handleCompleteFromModal}
+        />
+      )}
     </div>
   )
 }
+
+// Re-export type for the page that passes providerId
+export type { DoctorQueuePanelProps }

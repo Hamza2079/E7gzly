@@ -18,6 +18,8 @@ interface Schedule {
   queue_window: number
   grace_period: number
   is_active: boolean
+  max_reservations: number
+  advance_days: number
 }
 
 export default function ScheduleForm({ providerId }: { providerId: string }) {
@@ -28,14 +30,18 @@ export default function ScheduleForm({ providerId }: { providerId: string }) {
   useEffect(() => {
     const load = async () => {
       const supabase = createClient()
-      const { data } = await supabase
-        .from("doctor_schedules")
-        .select("*")
-        .eq("provider_id", providerId)
+      const [scheduleRes, limitsRes] = await Promise.all([
+        supabase.from("doctor_schedules").select("*").eq("provider_id", providerId),
+        supabase.from("queue_day_limits").select("*").eq("provider_id", providerId)
+      ])
 
+      const data = scheduleRes.data
+      const limitsData = limitsRes.data || []
+      
       if (data) {
         const map: Record<number, Schedule> = {}
         data.forEach((s) => {
+          const limit = limitsData.find(l => l.day_of_week === s.day_of_week)
           map[s.day_of_week] = {
             day_of_week: s.day_of_week,
             start_time: s.start_time,
@@ -46,6 +52,8 @@ export default function ScheduleForm({ providerId }: { providerId: string }) {
             queue_window: s.queue_window,
             grace_period: s.grace_period,
             is_active: s.is_active,
+            max_reservations: limit?.max_reservations ?? 20,
+            advance_days: limit?.advance_days ?? 7,
           }
         })
         setSchedules(map)
@@ -65,6 +73,8 @@ export default function ScheduleForm({ providerId }: { providerId: string }) {
       queue_window: 10,
       grace_period: 3,
       is_active: false,
+      max_reservations: 20,
+      advance_days: 7,
     }
   }
 
@@ -80,6 +90,8 @@ export default function ScheduleForm({ providerId }: { providerId: string }) {
     fd.set("queueWindow", String(s.queue_window))
     fd.set("gracePeriod", String(s.grace_period))
     fd.set("isActive", String(s.is_active))
+    fd.set("maxReservations", String(s.max_reservations))
+    fd.set("advanceDays", String(s.advance_days))
 
     startTransition(async () => {
       await upsertSchedule(fd)
@@ -198,6 +210,28 @@ export default function ScheduleForm({ providerId }: { providerId: string }) {
                     className="mt-1 block w-full rounded-lg border px-3 py-2 text-sm"
                     min={1}
                     max={15}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500">Max Future Reservations</label>
+                  <input
+                    type="number"
+                    value={s.max_reservations}
+                    onChange={(e) => updateDay(dayIndex, { max_reservations: parseInt(e.target.value) || 20 })}
+                    className="mt-1 block w-full rounded-lg border px-3 py-2 text-sm"
+                    min={0}
+                    max={100}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500">Advance Booking Days</label>
+                  <input
+                    type="number"
+                    value={s.advance_days}
+                    onChange={(e) => updateDay(dayIndex, { advance_days: parseInt(e.target.value) || 7 })}
+                    className="mt-1 block w-full rounded-lg border px-3 py-2 text-sm"
+                    min={1}
+                    max={90}
                   />
                 </div>
               </div>
