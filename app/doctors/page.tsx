@@ -118,10 +118,10 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Sear
         </div>
 
         {/* Grid Layer */}
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-6 md:gap-8 sm:grid-cols-2 lg:grid-cols-4">
           
           {(!providers || providers.length === 0) ? (
-            <div className="col-span-full py-20 text-center text-gray-400">
+            <div className="col-span-full py-20 text-center text-gray-400 font-bold">
               لا يوجد أطباء يطابقون معايير البحث.
             </div>
           ) : (
@@ -136,14 +136,16 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Sear
               const isFavorite = favorites.has(provider.id);
 
               return (
-                <div key={provider.id} className="group bg-white rounded-3xl overflow-hidden shadow-sm ring-1 ring-gray-100 transition-shadow hover:shadow-md flex flex-col relative">
-                  {/* Image */}
-                  <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
+                <div key={provider.id} className="group bg-white rounded-[2rem] overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 flex flex-col">
+                  {/* Image & Status */}
+                  <div className="relative aspect-[16/10] sm:aspect-[4/3] w-full overflow-hidden bg-gray-100">
                     <img 
                       src={u?.avatar_url || placeholderImg} 
                       alt="Doctor" 
-                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                     />
+                    
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
                     {/* Favorite button */}
                     <div className="absolute top-4 right-4 z-10">
@@ -153,65 +155,80 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Sear
                     {/* Status Pill */}
                     <div className="absolute top-4 left-4">
                       {status === "open" && (
-                        <div className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 backdrop-blur-md bg-opacity-90">
-                          <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> مفتوح
+                        <div className="bg-green-500 text-white text-[10px] font-black px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg shadow-green-500/30">
+                          <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" /> متاح الآن
                         </div>
                       )}
                       {status === "paused" && (
-                        <div className="bg-yellow-100 text-yellow-700 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 backdrop-blur-md bg-opacity-90">
-                          <span className="h-1.5 w-1.5 rounded-full bg-yellow-500" /> استراحة
+                        <div className="bg-amber-500 text-white text-[10px] font-black px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg shadow-amber-500/30">
+                          <span className="h-1.5 w-1.5 rounded-full bg-white" /> استراحة
                         </div>
                       )}
                       {status === "closed" && (
-                        <div className="bg-red-100 text-red-700 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 backdrop-blur-md bg-opacity-90">
-                          <span className="h-1.5 w-1.5 rounded-full bg-red-500" /> مغلق
+                        <div className="bg-gray-700 text-white text-[10px] font-black px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg shadow-gray-700/30">
+                           مغلق
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {/* Info */}
-                  <div className="p-5 flex flex-col flex-1">
-                    <p className="text-[10px] font-bold tracking-widest text-blue-500 uppercase mb-1">
-                      {provider.specialties?.name || "طب عام"}
-                    </p>
-                    <h3 className="font-bold text-gray-900 text-lg">
+                  {/* Info Section */}
+                  <div className="p-6 flex flex-col flex-1">
+                    <div className="flex justify-between items-start mb-2">
+                      <p className="text-[10px] font-black tracking-widest text-blue-600 uppercase">
+                        {provider.specialties?.name || "طب عام"}
+                      </p>
+                      <div className="flex items-center gap-1 text-[10px] font-bold text-amber-500 bg-amber-50 px-2 py-0.5 rounded-lg">
+                        ⭐ {provider.rating_avg || "5.0"}
+                      </div>
+                    </div>
+                    
+                    <h3 className="font-black text-gray-900 text-xl mb-1">
                       د. {u?.full_name}
                     </h3>
-                    <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
-                      <MapPin className="h-3.5 w-3.5" /> {provider.city || "موقع العيادة"}
+                    
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-gray-400">
+                      <MapPin className="h-3.5 w-3.5 text-blue-500" /> {provider.city || "موقع العيادة"}
                     </div>
 
-                    {/* Queue stats (only if queue is open) */}
-                    {status === "open" && waiting !== null && (
-                      <div className="mt-3 grid grid-cols-2 gap-2">
-                        <div className="bg-gray-50 rounded-xl px-3 py-2 text-center">
-                          <p className="text-base font-black text-gray-900">{waiting}</p>
-                          <p className="text-[10px] text-gray-400 font-bold">في الانتظار</p>
+                    {/* Compact Queue Info */}
+                    {status === "open" && waiting !== null ? (
+                      <div className="mt-4 flex items-center gap-4">
+                        <div className="flex -space-x-2 rtl:space-x-reverse">
+                           {[1,2,3].map(i => (
+                             <div key={i} className="h-6 w-6 rounded-full border-2 border-white bg-gray-200 overflow-hidden">
+                                <img src={`https://i.pravatar.cc/100?u=${provider.id}${i}`} alt="" />
+                             </div>
+                           ))}
                         </div>
-                        <div className="bg-blue-50 rounded-xl px-3 py-2 text-center">
-                          <p className="text-base font-black text-blue-700">{atClinic}</p>
-                          <p className="text-[10px] text-blue-400 font-bold">في العيادة</p>
-                        </div>
-                      </div>
-                    )}
-                    
-                    <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between">
-                      <div>
-                        <p className="text-[10px] uppercase font-bold text-gray-400">وقت الانتظار</p>
-                        <p className="text-sm font-bold text-gray-900">
-                          {status === "open" && waitMins !== null ? `~${waitMins} دقيقة` : "غير متاح"}
+                        <p className="text-[10px] font-bold text-gray-400">
+                          <span className="text-gray-900">{waiting}</span> مرضى في الانتظار
                         </p>
                       </div>
+                    ) : (
+                      <div className="mt-4 h-[22px]" /> // Spacer
+                    )}
+                    
+                    <div className="mt-auto pt-6 flex items-end justify-between gap-4">
+                      <div className="flex-1">
+                        <p className="text-[9px] uppercase font-black text-gray-400 tracking-tighter mb-0.5">وقت الانتظار التقريبي</p>
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-blue-600" />
+                          <p className="text-lg font-black text-gray-900">
+                            {status === "open" && waitMins !== null ? `${waitMins} د` : "--"}
+                          </p>
+                        </div>
+                      </div>
+                      
                       <Link 
                         href={`/doctors/${provider.id}`}
-                        className={`px-6 py-2 rounded-xl text-sm font-bold transition-colors ${
+                        className={`h-12 px-6 rounded-2xl text-sm font-black transition-all flex items-center justify-center ${
                           status === "open" || status === "paused" 
-                            ? "bg-blue-600 text-white shadow hover:bg-blue-700" 
+                            ? "bg-blue-600 text-white shadow-xl shadow-blue-600/20 hover:bg-blue-700 hover:scale-[1.02]" 
                             : "bg-gray-100 text-gray-400 pointer-events-none"
                         }`}
                       >
-                        {status === "closed" ? "مغلق اليوم" : "احجز الآن"}
+                        {status === "closed" ? "مغلق" : "حجز"}
                       </Link>
                     </div>
                   </div>
@@ -220,20 +237,21 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Sear
             })
           )}
 
-          {/* Marketing Card */}
-          <div className="col-span-1 lg:col-span-2 rounded-3xl bg-blue-600 p-8 flex flex-col justify-between relative overflow-hidden text-white shadow-xl">
-             <div className="absolute -left-10 -bottom-10 opacity-20 pointer-events-none">
-                <MonitorSmartphone className="h-64 w-64" />
+          {/* Premium Marketing Card */}
+          <div className="col-span-1 lg:col-span-2 rounded-[2.5rem] bg-gradient-to-br from-blue-600 to-indigo-800 p-8 flex flex-col justify-between relative overflow-hidden text-white shadow-2xl shadow-blue-600/30">
+             <div className="absolute -left-10 -bottom-10 opacity-10 pointer-events-none">
+                <MonitorSmartphone className="h-72 w-72" />
              </div>
-             <div className="relative z-10 w-3/4">
-               <h3 className="text-2xl font-bold mb-2">لا تنتظر في العيادة</h3>
-               <p className="text-sm text-blue-100 leading-relaxed">
-                 احجز استشارة افتراضية مع أطبائنا المتخصصين الآن واحصل على تشخيصك في دقائق.
-               </p>
+             <div className="relative z-10 w-full sm:w-3/4">
+                <div className="inline-block bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold mb-4 uppercase tracking-widest">ميزة جديدة</div>
+                <h3 className="text-3xl font-black mb-3 leading-tight">لا داعي للانتظار في العيادة بعد اليوم</h3>
+                <p className="text-sm text-blue-100 leading-relaxed font-medium">
+                  احجز دورك من المنزل، وتابع مكانك في الطابور مباشرة من هاتفك. سنقوم بتنبيهك عندما يحين وقت تحركك للعيادة.
+                </p>
              </div>
-             <div className="relative z-10 mt-6 lg:mt-0 pt-4">
-               <button className="bg-white text-blue-600 px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-gray-50 transition shadow-sm">
-                 <MonitorSmartphone className="h-4 w-4" /> استشارة فورية أونلاين
+             <div className="relative z-10 mt-8">
+               <button className="w-full sm:w-auto bg-white text-blue-700 px-8 py-4 rounded-[1.25rem] font-black text-sm flex items-center justify-center gap-3 hover:bg-gray-50 transition shadow-xl">
+                 <MonitorSmartphone className="h-5 w-5" /> ابدأ الاستخدام الآن
                </button>
              </div>
           </div>

@@ -15,6 +15,19 @@ async function getAuthUser() {
   const supabase = await createServer()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Not authenticated")
+
+  // Verify the user hasn't been deleted from public.users
+  const { data: profile } = await supabase
+    .from("users")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle()
+
+  if (!profile) {
+    await supabase.auth.signOut()
+    throw new Error("Your account has been deleted. Please log in again.")
+  }
+
   return { supabase, user }
 }
 
@@ -204,6 +217,15 @@ export async function resumeQueue(queueId: string) {
 
 export async function closeQueue(queueId: string, reason?: string) {
   const { supabase } = await getAuthUser()
+
+  // 1. Expire all unserved waiting tickets automatically
+  await supabase
+    .from("queue_entries")
+    .update({ status: "cancelled" }) // Or 'no_show', but 'cancelled' acts as expired end-of-day
+    .eq("queue_id", queueId)
+    .in("status", ["ready", "not_ready", "waiting", "called", "in_progress"])
+
+  // 2. Close the queue itself
   const { error } = await supabase
     .from("queues")
     .update({
@@ -214,6 +236,7 @@ export async function closeQueue(queueId: string, reason?: string) {
       session_expires_at: new Date().toISOString() // Expire session instantly
     })
     .eq("id", queueId)
+    
   if (error) return { error: error.message }
   revalidatePath("/dashboard/queue")
 }
@@ -290,6 +313,18 @@ export async function joinQueue(
   travelCategory: string = "here"
 ) {
   const { supabase, user } = await getAuthUser()
+
+  // 0. Check if user is already in any active queue
+  const { data: activeEntry } = await supabase
+    .from("queue_entries")
+    .select("id")
+    .eq("patient_id", user.id)
+    .in("status", ["waiting", "not_ready", "ready", "called", "in_progress"])
+    .maybeSingle()
+
+  if (activeEntry) {
+    return { error: "لقد انضممت بالفعل إلى طابور. يرجى إكمال أو إلغاء حجزك الحالي قبل الانضمام إلى طابور جديد." }
+  }
 
   // 1. Get queue info
   const { data: queue } = await supabase

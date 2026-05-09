@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Dashboard",
+  title: "لوحة التحكم",
 };
 
 export default async function DashboardLayout({
@@ -34,24 +34,28 @@ export default async function DashboardLayout({
     .from("users")
     .select("role, full_name")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
+
+  if (!profile) {
+    redirect("/auth/signout")
+  }
 
   const role = profile?.role || "patient";
-  const name = profile?.full_name || "User";
+  const name = profile?.full_name || "مستخدم";
 
   const navItems = [
-    { href: "/dashboard/queue", icon: ListOrdered, label: "Queue" },
-    { href: "/dashboard/services", icon: Stethoscope, label: "Services" },
-    { href: "/dashboard/reports", icon: BarChart3, label: "Reports" },
-    { href: "/dashboard/reviews", icon: Star, label: "Reviews" },
-    { href: "/dashboard/profile", icon: User, label: "Profile Settings" },
-    { href: "/dashboard/settings", icon: Settings, label: "Queue Settings" },
+    { href: "/dashboard/queue", icon: ListOrdered, label: "إدارة الطابور" },
+    { href: "/dashboard/services", icon: Stethoscope, label: "الخدمات" },
+    { href: "/dashboard/reports", icon: BarChart3, label: "التقارير" },
+    { href: "/dashboard/reviews", icon: Star, label: "التقييمات" },
+    { href: "/dashboard/profile", icon: User, label: "إعدادات الملف الشخصي" },
+    { href: "/dashboard/settings", icon: Settings, label: "إعدادات الطابور" },
   ];
 
   return (
-    <div className="flex h-screen overflow-hidden text-gray-900">
+    <div className="flex h-screen overflow-hidden text-gray-900" dir="rtl">
       {/* Sidebar */}
-      <aside className="flex w-16 md:w-64 shrink-0 flex-col border-r bg-white transition-all duration-300">
+      <aside className="flex w-16 md:w-64 shrink-0 flex-col border-l bg-white transition-all duration-300">
         <div className="flex h-16 items-center justify-center md:justify-start border-b px-0 md:px-6">
           <Link href="/" className="text-xl font-bold text-blue-600">
             <span className="md:hidden">E7</span>
@@ -81,17 +85,17 @@ export default async function DashboardLayout({
             <div className="hidden flex-1 overflow-hidden md:block">
               <p className="truncate text-sm font-medium text-gray-900">{name}</p>
               <p className="truncate text-xs text-gray-400">
-                {role === "provider" ? "Doctor" : "Patient"}
+                {role === "provider" ? "طبيب" : "مريض"}
               </p>
             </div>
           </div>
           <form action="/auth/signout" method="post">
             <button
               type="submit"
-              title="Sign Out"
+              title="تسجيل الخروج"
               className="flex w-full items-center justify-center md:justify-start gap-2 rounded-lg border border-red-200 p-2.5 md:px-3 md:py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
             >
-              <LogOut className="h-5 w-5 shrink-0" /> <span className="hidden md:inline">Sign Out</span>
+              <LogOut className="h-5 w-5 shrink-0" /> <span className="hidden md:inline">تسجيل الخروج</span>
             </button>
           </form>
         </div>
@@ -101,7 +105,7 @@ export default async function DashboardLayout({
       <div className="flex flex-1 flex-col overflow-y-auto">
         <header className="flex h-16 items-center justify-between border-b bg-white px-6">
           <h2 className="text-lg font-semibold text-gray-900">
-            Doctor Dashboard
+            لوحة تحكم الطبيب
           </h2>
         </header>
         <main className="flex-1 bg-gray-50 p-6">{children}</main>

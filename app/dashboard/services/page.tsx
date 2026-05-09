@@ -4,8 +4,8 @@ import ServiceManager from "@/components/services/ServiceManager"
 import { getServicesForProvider } from "@/actions/services"
 
 export const metadata = {
-  title: "Service Manager",
-  description: "Manage your clinic services and pricing.",
+  title: "إدارة الخدمات",
+  description: "إدارة خدمات عيادتك وأسعارها.",
 }
 
 export default async function ServicesPage() {
@@ -21,9 +21,9 @@ export default async function ServicesPage() {
 
   if (!provider || !provider.is_verified) {
     return (
-      <div className="py-20 text-center">
-        <h2 className="text-xl font-bold text-gray-900">Access Denied</h2>
-        <p className="mt-2 text-gray-500">Your account must be verified.</p>
+      <div className="py-20 text-center" dir="rtl">
+        <h2 className="text-xl font-bold text-gray-900">غير مصرح بالوصول</h2>
+        <p className="mt-2 text-gray-500">يجب أن يكون حسابك موثّقاً للوصول إلى هذه الصفحة.</p>
       </div>
     )
   }
@@ -31,11 +31,11 @@ export default async function ServicesPage() {
   const services = await getServicesForProvider(provider.id)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" dir="rtl">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Services & Pricing</h1>
+        <h1 className="text-2xl font-bold text-gray-900">الخدمات والأسعار</h1>
         <p className="mt-1 text-gray-500">
-          Manage your clinic's services. These will be available for you to assign to patients after their consultation.
+          إدارة خدمات عيادتك. ستكون هذه الخدمات متاحة لتعيينها للمرضى بعد الكشف.
         </p>
       </div>
 

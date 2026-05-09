@@ -153,6 +153,19 @@ export async function getPatientHistoryForDoctor(
   }))
 }
 
+/**
+ * Returns the patient's medical profile for the doctor dashboard.
+ */
+export async function getPatientMedicalProfile(patientId: string) {
+  const supabase = await createServer()
+  const { data } = await supabase
+    .from("users")
+    .select("blood_type, chronic_diseases, past_surgeries, allergies, current_medications")
+    .eq("id", patientId)
+    .single()
+  return data || null
+}
+
 // ============================================================
 // PATIENT — READ VISIT SUMMARY (via secure view)
 // ============================================================

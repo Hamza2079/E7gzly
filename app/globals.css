@@ -140,3 +140,23 @@
     @apply font-sans;
   }
 }
+
+@layer components {
+  .ticket-card {
+    @apply relative bg-white rounded-[2.5rem] shadow-2xl shadow-blue-900/10 overflow-visible;
+  }
+  .ticket-cutout {
+    @apply relative border-t-2 border-dashed border-gray-100 my-4;
+  }
+  .ticket-cutout::before,
+  .ticket-cutout::after {
+    content: "";
+    @apply absolute -top-3 h-6 w-6 rounded-full bg-gray-50;
+  }
+  .ticket-cutout::before {
+    @apply -left-[1.35rem];
+  }
+  .ticket-cutout::after {
+    @apply -right-[1.35rem];
+  }
+}

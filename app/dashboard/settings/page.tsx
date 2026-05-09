@@ -4,8 +4,8 @@ import { redirect } from "next/navigation"
 import ScheduleForm from "@/components/queue/ScheduleForm"
 
 export const metadata = {
-  title: "Schedule Settings",
-  description: "Configure your weekly working hours and queue settings.",
+  title: "إعدادات الجدول الزمني",
+  description: "قم بتهيئة ساعات عملك الأسبوعية وإعدادات الطابور.",
 }
 
 export default async function DoctorSettingsPage() {
@@ -21,9 +21,9 @@ export default async function DoctorSettingsPage() {
 
   if (!provider || !provider.is_verified) {
     return (
-      <div className="py-20 text-center">
-        <h2 className="text-xl font-bold text-gray-900">Access Denied</h2>
-        <p className="mt-2 text-gray-500">Your account must be verified.</p>
+      <div className="py-20 text-center" dir="rtl">
+        <h2 className="text-xl font-bold text-gray-900">غير مصرح بالوصول</h2>
+        <p className="mt-2 text-gray-500">يجب أن يكون حسابك موثّقاً للوصول إلى هذه الصفحة.</p>
       </div>
     )
   }
@@ -34,11 +34,11 @@ export default async function DoctorSettingsPage() {
     .eq("provider_id", provider.id)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" dir="rtl">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Schedule Settings</h1>
+        <h1 className="text-2xl font-bold text-gray-900">إعدادات الجدول الزمني</h1>
         <p className="mt-1 text-gray-500">
-          Configure your weekly working hours and future reservation limits. Your queue will auto-open and close based on this schedule.
+          قم بتهيئة ساعات عملك الأسبوعية وحدود الحجز المسبق. سيفتح طابورك ويُغلق تلقائياً بناءً على هذا الجدول.
         </p>
       </div>
 

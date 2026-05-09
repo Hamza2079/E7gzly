@@ -4,7 +4,7 @@ import { updateDoctorProfile } from "./actions"
 import { User, Stethoscope } from "lucide-react"
 
 export const metadata = {
-  title: "Profile Settings",
+  title: "إعدادات الملف الشخصي",
 }
 
 export default async function DoctorProfilePage() {
@@ -20,10 +20,10 @@ export default async function DoctorProfilePage() {
   if (!userProfile) redirect("/login")
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" dir="rtl">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Profile Settings</h1>
-        <p className="mt-2 text-gray-500">Manage your public information and clinic details.</p>
+        <h1 className="text-3xl font-bold text-gray-900">إعدادات الملف الشخصي</h1>
+        <p className="mt-2 text-gray-500">إدارة معلوماتك العامة وتفاصيل العيادة.</p>
       </div>
 
       <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
@@ -35,12 +35,12 @@ export default async function DoctorProfilePage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-600">
                 <User className="h-5 w-5" />
               </div>
-              <h2 className="text-xl font-semibold text-gray-900">Personal Information</h2>
+              <h2 className="text-xl font-semibold text-gray-900">المعلومات الشخصية</h2>
             </div>
             
             <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Full Name</label>
+                <label className="block text-sm font-medium text-gray-700">الاسم الكامل</label>
                 <input
                   type="text"
                   name="fullName"
@@ -51,7 +51,7 @@ export default async function DoctorProfilePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Email Address (Read Only)</label>
+                <label className="block text-sm font-medium text-gray-700">البريد الإلكتروني (للقراءة فقط)</label>
                 <input
                   type="email"
                   defaultValue={userProfile.email}
@@ -61,7 +61,7 @@ export default async function DoctorProfilePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Phone</label>
+                <label className="block text-sm font-medium text-gray-700">رقم الهاتف</label>
                 <input
                   type="tel"
                   name="phone"
@@ -71,15 +71,15 @@ export default async function DoctorProfilePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Gender</label>
+                <label className="block text-sm font-medium text-gray-700">الجنس</label>
                 <select
                   name="gender"
                   defaultValue={userProfile.gender || ""}
                   className="mt-2 block w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
-                  <option value="">Select...</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
+                  <option value="">اختر...</option>
+                  <option value="male">ذكر</option>
+                  <option value="female">أنثى</option>
                 </select>
               </div>
             </div>
@@ -91,12 +91,12 @@ export default async function DoctorProfilePage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
                 <Stethoscope className="h-5 w-5" />
               </div>
-              <h2 className="text-xl font-semibold text-gray-900">Professional Details</h2>
+              <h2 className="text-xl font-semibold text-gray-900">التفاصيل المهنية</h2>
             </div>
 
             <div className="mt-6 space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Medical License Number</label>
+                <label className="block text-sm font-medium text-gray-700">رقم الترخيص الطبي</label>
                 <input
                   type="text"
                   name="licenseNumber"
@@ -107,7 +107,7 @@ export default async function DoctorProfilePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Bio / Description</label>
+                <label className="block text-sm font-medium text-gray-700">نبذة تعريفية / الوصف</label>
                 <textarea
                   name="bio"
                   rows={4}
@@ -118,7 +118,7 @@ export default async function DoctorProfilePage() {
 
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Years of Experience</label>
+                  <label className="block text-sm font-medium text-gray-700">سنوات الخبرة</label>
                   <input
                     type="number"
                     name="yearsOfExperience"
@@ -128,7 +128,7 @@ export default async function DoctorProfilePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Consultation Fee (EGP)</label>
+                  <label className="block text-sm font-medium text-gray-700">رسوم الكشف (جنيه مصري)</label>
                   <input
                     type="number"
                     name="consultationFee"
@@ -138,7 +138,7 @@ export default async function DoctorProfilePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Clinic / Hospital Name</label>
+                  <label className="block text-sm font-medium text-gray-700">اسم العيادة / المستشفى</label>
                   <input
                     type="text"
                     name="clinicName"
@@ -148,7 +148,7 @@ export default async function DoctorProfilePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Clinic Address</label>
+                  <label className="block text-sm font-medium text-gray-700">عنوان العيادة</label>
                   <input
                     type="text"
                     name="clinicAddress"
@@ -160,12 +160,12 @@ export default async function DoctorProfilePage() {
             </div>
           </div>
 
-          <div className="flex justify-end pt-6 border-t border-gray-100">
+          <div className="flex justify-start pt-6 border-t border-gray-100">
             <button
               type="submit"
               className="rounded-xl bg-blue-600 px-8 py-3.5 text-sm font-bold text-white shadow-lg hover:bg-blue-700"
             >
-              Save Profile Changes
+              حفظ التغييرات
             </button>
           </div>
         </form>

@@ -5,7 +5,20 @@ import { redirect } from "next/navigation"
 export default async function PatientLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createServer()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
+  
+  if (!user) {
+    redirect("/login")
+  }
+
+  const { data: profile } = await supabase
+    .from("users")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle()
+
+  if (!profile) {
+    redirect("/auth/signout")
+  }
 
   return (
     <div className="min-h-screen bg-gray-50/50">

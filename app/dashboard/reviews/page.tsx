@@ -4,7 +4,7 @@ import { Star, MessageCircle, Reply } from "lucide-react"
 import { replyToReview } from "./actions"
 
 export const metadata = {
-  title: "Reviews Dashboard",
+  title: "لوحة التقييمات",
 }
 
 export default async function DoctorReviewsPage() {
@@ -32,10 +32,10 @@ export default async function DoctorReviewsPage() {
     : "0.0"
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" dir="rtl">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Patient Reviews</h1>
-        <p className="mt-2 text-gray-500">Monitor your feedback and build trust with your patients.</p>
+        <h1 className="text-3xl font-bold text-gray-900">تقييمات المرضى</h1>
+        <p className="mt-2 text-gray-500">راقب آراء مرضاك وابنِ ثقتهم بك.</p>
       </div>
 
       {/* Metrics */}
@@ -45,7 +45,7 @@ export default async function DoctorReviewsPage() {
             <Star className="h-6 w-6" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-500">Average Rating</p>
+            <p className="text-sm font-medium text-gray-500">متوسط التقييم</p>
             <p className="text-2xl font-bold text-gray-900">{avgRating} <span className="text-sm font-normal text-gray-400">/ 5.0</span></p>
           </div>
         </div>
@@ -54,7 +54,7 @@ export default async function DoctorReviewsPage() {
             <MessageCircle className="h-6 w-6" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-500">Total Reviews</p>
+            <p className="text-sm font-medium text-gray-500">إجمالي التقييمات</p>
             <p className="text-2xl font-bold text-gray-900">{totalReviews}</p>
           </div>
         </div>
@@ -65,19 +65,19 @@ export default async function DoctorReviewsPage() {
         {(!reviews || reviews.length === 0) ? (
            <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-12 text-center">
              <MessageCircle className="mx-auto h-12 w-12 text-gray-300" />
-             <h3 className="mt-4 text-lg font-semibold text-gray-900">No reviews yet</h3>
-             <p className="mt-2 text-sm text-gray-500">When patients leave feedback, it will appear here.</p>
+             <h3 className="mt-4 text-lg font-semibold text-gray-900">لا توجد تقييمات بعد</h3>
+             <p className="mt-2 text-sm text-gray-500">عندما يترك المرضى تقييماتهم، ستظهر هنا.</p>
            </div>
         ) : (
           reviews.map((review: any) => {
-            const patientName = review.users?.full_name || "Anonymous Patient"
+            const patientName = review.users?.full_name || "مريض مجهول"
             
             return (
               <div key={review.id} className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
                 <div className="flex items-center justify-between border-b border-gray-50 pb-4">
                   <div>
                     <h3 className="font-bold text-gray-900">{patientName}</h3>
-                    <p className="text-xs text-gray-400">{new Date(review.created_at).toLocaleDateString()}</p>
+                    <p className="text-xs text-gray-400">{new Date(review.created_at).toLocaleDateString("ar-EG")}</p>
                   </div>
                   <div className="flex items-center gap-1">
                     {[1, 2, 3, 4, 5].map((star) => (
@@ -90,12 +90,12 @@ export default async function DoctorReviewsPage() {
                 </div>
                 
                 <div className="py-4">
-                  <p className="text-sm text-gray-700">{review.comment || "No written feedback provided."}</p>
+                  <p className="text-sm text-gray-700">{review.comment || "لم يتم تقديم تعليق مكتوب."}</p>
                 </div>
 
                 {review.provider_response ? (
                   <div className="mt-2 rounded-xl bg-blue-50 p-4">
-                    <p className="text-xs font-bold text-blue-900 mb-1">Your Public Response:</p>
+                    <p className="text-xs font-bold text-blue-900 mb-1">ردّك العلني:</p>
                     <p className="text-sm text-blue-800">{review.provider_response}</p>
                   </div>
                 ) : (
@@ -105,7 +105,7 @@ export default async function DoctorReviewsPage() {
                       <input
                         type="text"
                         name="providerResponse"
-                        placeholder="Write a public reply..."
+                        placeholder="اكتب ردًّا علنيًّا..."
                         required
                         className="flex-1 rounded-xl border border-gray-200 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
@@ -113,7 +113,7 @@ export default async function DoctorReviewsPage() {
                         type="submit"
                         className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
                       >
-                        <Reply className="h-4 w-4" /> Reply
+                        <Reply className="h-4 w-4" /> ردّ
                       </button>
                     </div>
                   </form>

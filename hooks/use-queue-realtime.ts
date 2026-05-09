@@ -39,7 +39,7 @@ export interface QueueEntryData {
   travel_updated_at: string | null
   last_ready_at: string | null
   // Joined
-  users?: { full_name: string; phone: string | null }
+  users?: { full_name: string; phone: string | null; avatar_url: string | null }
 }
 
 export function useQueueRealtime(queueId: string | null) {
@@ -75,7 +75,7 @@ export function useQueueRealtime(queueId: string | null) {
     // Fetch active entries with sync fields
     const { data: queueEntries } = await supabase
       .from("queue_entries")
-      .select("id, queue_number, patient_id, status, called_at, grace_deadline, visit_reason, source, travel_category, patient_eta, patient_message, is_checked_in, travel_updated_at, last_ready_at, users(full_name, phone)")
+      .select("id, queue_number, patient_id, status, called_at, grace_deadline, visit_reason, source, travel_category, patient_eta, patient_message, is_checked_in, travel_updated_at, last_ready_at, users(full_name, phone, avatar_url)")
       .eq("queue_id", queueId)
       .in("status", ["ready", "not_ready", "called", "in_progress"])
       .order("queue_number", { ascending: true })

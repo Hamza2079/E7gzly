@@ -137,3 +137,124 @@ export async function regenerateReceptionistSession(queueId: string) {
   revalidatePath("/dashboard/queue")
   return { token: data.session_token }
 }
+
+export async function receptionistCallNextPatient(sessionToken: string) {
+  const adminSupabase = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+  // Get the queue
+  const { data: queue } = await adminSupabase
+    .from("queues")
+    .select("id, status, session_expires_at, provider_id")
+    .eq("session_token", sessionToken)
+    .single()
+
+  if (!queue) return { error: "Invalid session token" }
+  if (queue.status !== "open") return { error: "Queue is not open" }
+  if (queue.session_expires_at && new Date(queue.session_expires_at) < new Date()) {
+    return { error: "Session has expired" }
+  }
+
+  // Look up the LIVE schedule directly for the current grace_period
+  const dayOfWeek = new Date().getDay()
+  const { data: scheduleRow } = await adminSupabase
+    .from("doctor_schedules")
+    .select("grace_period")
+    .eq("provider_id", queue.provider_id)
+    .eq("day_of_week", dayOfWeek)
+    .eq("is_active", true)
+    .maybeSingle()
+
+  const gracePeriod = scheduleRow?.grace_period || 3
+
+  // Find next READY patient strictly ordered by queue_number ASC
+  const { data: nextEntry } = await adminSupabase
+    .from("queue_entries")
+    .select("id, queue_number")
+    .eq("queue_id", queue.id)
+    .eq("status", "ready")
+    .order("queue_number", { ascending: true })
+    .limit(1)
+    .single()
+
+  if (!nextEntry) return { error: "No ready patients" }
+
+  const graceDeadline = new Date(Date.now() + gracePeriod * 60 * 1000).toISOString()
+
+  await adminSupabase
+    .from("queue_entries")
+    .update({
+      status: "called",
+      called_at: new Date().toISOString(),
+      grace_deadline: graceDeadline,
+    })
+    .eq("id", nextEntry.id)
+
+  await adminSupabase
+    .from("queues")
+    .update({ current_serving: nextEntry.queue_number })
+    .eq("id", queue.id)
+
+  revalidatePath(`/clinic/session/${sessionToken}`)
+  return { entry: nextEntry, graceDeadline }
+}
+
+export async function receptionistCallNextNotReadyPatient(sessionToken: string) {
+  const adminSupabase = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+  // Get the queue
+  const { data: queue } = await adminSupabase
+    .from("queues")
+    .select("id, status, session_expires_at, provider_id")
+    .eq("session_token", sessionToken)
+    .single()
+
+  if (!queue) return { error: "Invalid session token" }
+  if (queue.status !== "open") return { error: "Queue is not open" }
+  if (queue.session_expires_at && new Date(queue.session_expires_at) < new Date()) {
+    return { error: "Session has expired" }
+  }
+
+  // Look up the LIVE schedule directly for the current grace_period
+  const dayOfWeek = new Date().getDay()
+  const { data: scheduleRow } = await adminSupabase
+    .from("doctor_schedules")
+    .select("grace_period")
+    .eq("provider_id", queue.provider_id)
+    .eq("day_of_week", dayOfWeek)
+    .eq("is_active", true)
+    .maybeSingle()
+
+  const gracePeriod = scheduleRow?.grace_period || 3
+
+  // Find next NOT_READY patient
+  const { data: nextEntry } = await adminSupabase
+    .from("queue_entries")
+    .select("id, queue_number")
+    .eq("queue_id", queue.id)
+    .eq("status", "not_ready")
+    .order("joined_at", { ascending: true })
+    .order("queue_number", { ascending: true })
+    .limit(1)
+    .single()
+
+  if (!nextEntry) return { error: "No not-ready patients" }
+
+  const graceDeadline = new Date(Date.now() + gracePeriod * 60 * 1000).toISOString()
+
+  await adminSupabase
+    .from("queue_entries")
+    .update({
+      status: "called",
+      called_at: new Date().toISOString(),
+      grace_deadline: graceDeadline,
+    })
+    .eq("id", nextEntry.id)
+
+  await adminSupabase
+    .from("queues")
+    .update({ current_serving: nextEntry.queue_number })
+    .eq("id", queue.id)
+
+  revalidatePath(`/clinic/session/${sessionToken}`)
+  return { entry: nextEntry, graceDeadline }
+}

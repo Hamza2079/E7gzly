@@ -123,15 +123,15 @@ export default function QueueTicket({
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-50">
             <CheckCircle className="h-8 w-8 text-green-600" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900">Thank you!</h2>
-          <p className="mt-2 text-sm text-gray-500">Your review has been submitted. It helps other patients find great doctors.</p>
+          <h2 className="text-xl font-bold text-gray-900">شكراً لك! 🎉</h2>
+          <p className="mt-2 text-sm text-gray-500">تم إرسال تقييمك. رأيك يساعد المرضى الآخرين في اختيار الطبيب المناسب.</p>
           <div className="flex justify-center gap-1 mt-3">
             {[1,2,3,4,5].map(s => (
               <Star key={s} className={`h-5 w-5 ${s <= reviewRating ? "fill-yellow-400 text-yellow-400" : "text-gray-200"}`} />
             ))}
           </div>
           <Link href="/doctors" className="mt-6 inline-block rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-blue-700 transition">
-            Browse Doctors
+            تصفح الأطباء
           </Link>
         </div>
       )
@@ -145,8 +145,8 @@ export default function QueueTicket({
             <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-green-50">
               <CheckCircle className="h-7 w-7 text-green-600" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900">Visit Completed!</h2>
-            <p className="mt-1 text-sm text-gray-500">How was your experience with {doctorName}?</p>
+            <h2 className="text-xl font-bold text-gray-900">تمّت الزيارة ✅</h2>
+            <p className="mt-1 text-sm text-gray-500">كيف كانت تجربتك مع {doctorName}؟</p>
           </div>
 
           {/* Star rating */}
@@ -172,7 +172,7 @@ export default function QueueTicket({
           {/* Rating label */}
           {reviewRating > 0 && (
             <p className="text-center text-sm font-medium text-gray-600 mb-4">
-              {reviewRating === 1 ? "Poor" : reviewRating === 2 ? "Fair" : reviewRating === 3 ? "Good" : reviewRating === 4 ? "Very Good" : "Excellent!"}
+              {reviewRating === 1 ? "ضعيف" : reviewRating === 2 ? "مقبول" : reviewRating === 3 ? "جيد" : reviewRating === 4 ? "جيد جداً" : "ممتاز! 🌟"}
             </p>
           )}
 
@@ -180,7 +180,7 @@ export default function QueueTicket({
           <textarea
             value={reviewComment}
             onChange={(e) => setReviewComment(e.target.value)}
-            placeholder="Share your experience (optional)..."
+            placeholder="شاركنا تجربتك (اختياري)..."
             rows={3}
             maxLength={500}
             className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
@@ -193,8 +193,8 @@ export default function QueueTicket({
           {/* Submit */}
           <button
             onClick={() => {
-              if (reviewRating === 0) { setReviewError("Please select a rating"); return }
-              if (!providerId) { setReviewError("Missing provider info"); return }
+              if (reviewRating === 0) { setReviewError("يرجى اختيار تقييم"); return }
+              if (!providerId) { setReviewError("معلومات الطبيب غير متوفرة"); return }
               startTransition(async () => {
                 setReviewError(null)
                 const result = await submitReview(entryId, providerId, reviewRating, reviewComment)
@@ -205,12 +205,12 @@ export default function QueueTicket({
             disabled={isPending || reviewRating === 0}
             className="mt-4 w-full rounded-xl bg-blue-600 py-3 text-sm font-bold text-white hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isPending ? "Submitting..." : "Submit Review"}
+            {isPending ? "جاري الإرسال..." : "إرسال التقييم"}
           </button>
 
           {/* Skip */}
           <Link href="/doctors" className="mt-3 block text-center text-sm text-gray-400 hover:text-gray-600 transition">
-            Skip for now
+            تخطّي الآن
           </Link>
         </div>
       </div>
@@ -232,131 +232,140 @@ export default function QueueTicket({
       />
 
       {/* ── MAIN TICKET CARD ── */}
-      <div className="overflow-hidden rounded-2xl bg-white shadow-lg">
-        {/* Header */}
-        <div className={`px-6 py-4 text-white ${
-          ticket.entryStatus === "called" ? "bg-gradient-to-r from-green-600 to-emerald-600" :
-          ticket.entryStatus === "in_progress" ? "bg-gradient-to-r from-blue-600 to-indigo-600" :
-          ticket.isNextInLine ? "bg-gradient-to-r from-amber-500 to-orange-500" :
-          "bg-gradient-to-r from-blue-600 to-blue-700"
+      <div className="ticket-card">
+        {/* Top Part: Clinic Info */}
+        <div className={`px-8 py-6 text-white rounded-t-[2.5rem] ${
+          ticket.entryStatus === "called" ? "bg-gradient-to-br from-green-600 to-emerald-600" :
+          ticket.entryStatus === "in_progress" ? "bg-gradient-to-br from-blue-600 to-indigo-600" :
+          ticket.isNextInLine ? "bg-gradient-to-br from-amber-500 to-orange-500" :
+          "bg-gradient-to-br from-blue-600 to-indigo-700"
         }`}>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-white/80">{doctorName} · {specialtyName}</p>
-              <p className="text-xs text-white/60 mt-0.5">
-                {clinicName || "Clinic"}
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5 bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-full">
-              <span className={`h-1.5 w-1.5 rounded-full ${ticket.isConnected ? "bg-green-300 animate-pulse" : "bg-red-300"}`} />
-              <span className="text-[10px] font-bold text-white/90">
-                {ticket.isConnected ? "LIVE" : "CONNECTING"}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full">
+              <span className={`h-2 w-2 rounded-full ${ticket.isConnected ? "bg-green-300 animate-pulse" : "bg-red-300"}`} />
+              <span className="text-[10px] font-black text-white">
+                {ticket.isConnected ? "تحديث مباشر" : "جاري الاتصال"}
               </span>
+            </div>
+            <div className="text-[10px] font-black text-white/60 tracking-widest uppercase">
+              {new Date().toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' })}
+            </div>
+          </div>
+          
+          <div className="space-y-1">
+            <h3 className="text-2xl font-black">{doctorName}</h3>
+            <p className="text-sm font-bold text-white/80">{specialtyName}</p>
+            <div className="flex items-center gap-1.5 text-xs text-white/60 pt-1">
+              <MapPin className="h-3 w-3" />
+              <span>{clinicName}</span>
             </div>
           </div>
         </div>
 
-        {/* Queue Number */}
-        <div className="px-6 py-6 text-center">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Your Queue Number</p>
-          <p className="mt-1 text-6xl font-black text-gray-900">
-            #{String(queueNumber).padStart(3, "0")}
-          </p>
+        {/* The Perforation */}
+        <div className="ticket-cutout" />
 
-          {/* ── IN PROGRESS STATE ── */}
-          {ticket.entryStatus === "in_progress" && (
-            <div className="mt-4 rounded-xl bg-blue-50 border border-blue-200 p-4">
-              <CheckCircle className="mx-auto h-8 w-8 text-blue-600" />
-              <p className="mt-2 text-lg font-bold text-blue-700">جاري الكشف الطبي</p>
-              <p className="text-sm text-blue-500 mt-1">أنت الآن مع الدكتور</p>
+        {/* Bottom Part: Queue Info */}
+        <div className="px-8 pb-8 pt-2">
+          <div className="text-center mb-6">
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">رقمك في الطابور</p>
+            <div className="relative inline-block">
+               <span className="text-7xl font-black text-gray-900 tracking-tighter">
+                {String(queueNumber).padStart(2, "0")}
+               </span>
+               <div className="absolute -right-4 top-0 h-4 w-4 rounded-full bg-blue-100 flex items-center justify-center">
+                  <Hash className="h-2 w-2 text-blue-600" />
+               </div>
             </div>
-          )}
+          </div>
 
-          {/* ── CALLED STATE ── */}
-          {ticket.entryStatus === "called" && (
-            <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-5 text-center">
-              <p className="text-xl font-black text-amber-700">✨ جاء دورك!</p>
-              <p className="text-sm text-amber-600 mt-1 font-medium">توجه إلى غرفة الكشف الآن.</p>
-            </div>
-          )}
-
-          {/* ── NOT READY STATE ── */}
-          {ticket.entryStatus === "not_ready" && (
-            <div className="mt-4 space-y-3">
-              <div className="rounded-xl bg-gray-50 border border-gray-200 p-5">
-                <p className="text-lg font-bold text-gray-900 text-center">
-                  يوجد <span className="text-blue-600">{ticket.patientsBeforeYou}</span> مريض قبلك.
-                </p>
-                <p className="text-sm text-gray-600 text-center mt-1 font-medium">
-                  {ticket.readyBeforeYou} منهم في العيادة الآن.
-                </p>
-                <div className="mt-4 text-sm font-bold text-amber-700 bg-amber-50 p-3 rounded-xl text-center border border-amber-100 shadow-sm">
-                  سيتم تقديمك بمجرد وصولك.
+          {/* Status Specific UI */}
+          <div className="space-y-4">
+            {/* ── IN PROGRESS STATE ── */}
+            {ticket.entryStatus === "in_progress" && (
+              <div className="rounded-2xl bg-blue-50 border-2 border-blue-100 p-4 text-center">
+                <div className="mx-auto h-12 w-12 rounded-full bg-blue-600 text-white flex items-center justify-center mb-3 shadow-lg shadow-blue-600/20">
+                  <Stethoscope className="h-6 w-6" />
                 </div>
+                <p className="text-lg font-black text-blue-800">أنت الآن مع الطبيب</p>
+                <p className="text-xs text-blue-500 mt-1 font-bold">يرجى اتباع تعليمات الطاقم الطبي</p>
               </div>
-              <button
-                onClick={handleMarkReady}
-                disabled={isPending}
-                className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-md"
-              >
-                <MapPin className="h-5 w-5" /> أنا هنا / جاهز
-              </button>
-            </div>
-          )}
-        </div>
+            )}
 
-        {/* ── WAITING STATS (READY) ── */}
-        {ticket.entryStatus === "ready" && (
-          <>
-            <div className="px-6 py-5 bg-blue-50 border-t border-blue-100 text-center">
-              {ticket.readyBeforeYou === 0 ? (
-                <h3 className="text-lg font-bold text-blue-800">أنت التالي بعد المريض الحالي.</h3>
-              ) : (
-                <h3 className="text-lg font-bold text-blue-800">
-                  يوجد <span className="text-blue-600 text-xl mx-1">{ticket.readyBeforeYou}</span> مريض جاهز قبلك.
-                </h3>
-              )}
-              <p className="text-sm font-bold text-blue-600 mt-1">دورك قريب.</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-px border-t bg-gray-100">
-              <div className="bg-white px-4 py-4 text-center">
-                <Clock className="mx-auto h-4 w-4 text-gray-400 mb-1" />
-                <p className="text-lg font-bold text-gray-900">
-                  {ticket.estimatedCallTime || `~${ticket.estimatedWaitMinutes}m`}
-                </p>
-                <p className="text-[10px] text-gray-500 font-medium">
-                  {ticket.estimatedCallTime ? "Est. Time" : "Est. Wait"}
-                </p>
-              </div>
-              <div className="bg-white px-4 py-4 text-center">
-                <Hash className="mx-auto h-4 w-4 text-gray-400 mb-1" />
-                <p className="text-lg font-bold text-gray-900">
-                  #{ticket.currentServing || "—"}
-                </p>
-                <p className="text-[10px] text-gray-500 font-medium">Now Serving</p>
-              </div>
-            </div>
-
-            {/* Progress bar */}
-            {ticket.currentServing && (
-              <div className="px-6 py-3">
-                <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-                  <div
-                    className="h-full rounded-full bg-blue-600 transition-all duration-700"
-                    style={{ width: `${Math.min(100, ((ticket.currentServing / queueNumber) * 100))}%` }}
-                  />
+            {/* ── CALLED STATE ── */}
+            {ticket.entryStatus === "called" && (
+              <div className="rounded-2xl bg-emerald-50 border-2 border-emerald-100 p-6 text-center animate-pulse">
+                <p className="text-2xl font-black text-emerald-800 mb-2">تفضل بالدخول ✨</p>
+                <div className="flex items-center justify-center gap-2">
+                   <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                   <p className="text-sm text-emerald-600 font-bold">الطبيب بانتظارك الآن</p>
                 </div>
               </div>
             )}
-          </>
-        )}
+
+            {/* ── NOT READY / READY STATS ── */}
+            {(ticket.entryStatus === "not_ready" || ticket.entryStatus === "ready") && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-50 rounded-2xl p-4 text-center border border-gray-100">
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter mb-1">وقت الانتظار</p>
+                    <div className="flex items-center justify-center gap-1.5">
+                      <Clock className="h-4 w-4 text-blue-600" />
+                      <p className="text-xl font-black text-gray-900">
+                        ~{ticket.estimatedWaitMinutes} <span className="text-[10px]">د</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 rounded-2xl p-4 text-center border border-gray-100">
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter mb-1">المريض الحالي</p>
+                    <div className="flex items-center justify-center gap-1.5">
+                      <Users className="h-4 w-4 text-blue-600" />
+                      <p className="text-xl font-black text-gray-900">#{ticket.currentServing || "—"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Patient Count Progress */}
+                <div className="rounded-2xl bg-blue-50/50 p-4 border border-blue-50">
+                  <div className="flex justify-between items-end mb-3">
+                    <p className="text-xs font-bold text-gray-600">
+                       {ticket.patientsBeforeYou === 0 ? "أنت التالي في القائمة" : `يوجد ${ticket.patientsBeforeYou} مرضى قبلك`}
+                    </p>
+                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
+                       {Math.round((ticket.currentServing / queueNumber) * 100) || 0}%
+                    </p>
+                  </div>
+                  <div className="h-2.5 w-full bg-blue-100 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-blue-600 rounded-full transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(37,99,235,0.4)]"
+                      style={{ width: `${Math.min(100, ((ticket.currentServing / queueNumber) * 100)) || 5}%` }}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ── NOT READY ACTION ── */}
+            {ticket.entryStatus === "not_ready" && (
+              <button
+                onClick={handleMarkReady}
+                disabled={isPending}
+                className="w-full h-14 rounded-2xl bg-blue-600 text-white font-black text-sm flex items-center justify-center gap-3 shadow-xl shadow-blue-600/20 hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                <div className="h-6 w-6 rounded-lg bg-white/20 flex items-center justify-center">
+                  <MapPin className="h-4 w-4" />
+                </div>
+                لقد وصلت للعيادة / أنا جاهز
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* ── TRAVEL STATUS UPDATER ── */}
       {(ticket.entryStatus === "ready" || ticket.entryStatus === "called") && (
         <div className="rounded-2xl bg-white p-4 shadow-sm border border-gray-100">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">📍 Where are you?</p>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">📍 أين أنت الآن؟</p>
           <div className="grid grid-cols-4 gap-2">
             <button
               onClick={() => handleTravel("here")}
@@ -364,7 +373,7 @@ export default function QueueTicket({
               className="flex flex-col items-center gap-1.5 rounded-xl border border-gray-200 p-3 text-center hover:bg-blue-50 hover:border-blue-300 transition disabled:opacity-50"
             >
               <MapPin className="h-5 w-5 text-green-600" />
-              <span className="text-[10px] font-bold text-gray-700">Here</span>
+              <span className="text-[10px] font-bold text-gray-700">هنا</span>
             </button>
             <button
               onClick={() => handleTravel("nearby")}
@@ -399,12 +408,12 @@ export default function QueueTicket({
         <div className="rounded-2xl bg-white shadow-sm border border-gray-100 overflow-hidden">
           {showMessageInput ? (
             <div className="p-4 space-y-3">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">💬 Message to clinic</p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">💬 رسالة للعيادة</p>
               <input
                 type="text"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="e.g. Running 5 min late..."
+                placeholder="مثال: سأتأخر 5 دقائق..."
                 maxLength={200}
                 className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
@@ -414,14 +423,14 @@ export default function QueueTicket({
                   onClick={() => { setShowMessageInput(false); setMessage("") }}
                   className="flex-1 rounded-lg border py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
                 >
-                  Cancel
+                  إلغاء
                 </button>
                 <button
                   onClick={handleSendMessage}
                   disabled={isPending || !message.trim()}
                   className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  <Send className="h-3.5 w-3.5" /> Send
+                  <Send className="h-3.5 w-3.5" /> إرسال
                 </button>
               </div>
             </div>
@@ -431,7 +440,7 @@ export default function QueueTicket({
               className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition"
             >
               <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                <MessageSquare className="h-4 w-4 text-blue-600" /> Message the Clinic
+                <MessageSquare className="h-4 w-4 text-blue-600" /> راسل العيادة
               </span>
               <ChevronRight className="h-4 w-4 text-gray-400" />
             </button>
@@ -459,7 +468,7 @@ export default function QueueTicket({
           disabled={isPending}
           className="w-full rounded-xl border border-red-200 py-3 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
         >
-          {isPending ? "Cancelling..." : "Leave Queue"}
+          {isPending ? "جاري الإلغاء..." : "مغادرة الطابور"}
         </button>
       )}
     </div>
@@ -488,7 +497,7 @@ function DoctorStatusBanner({
       {status === "active" && delayMinutes <= 5 && (
         <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3 flex items-center gap-3">
           <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse shrink-0" />
-          <p className="text-sm font-medium text-green-700">Doctor is active and seeing patients</p>
+          <p className="text-sm font-medium text-green-700">الطبيب نشط ويستقبل المرضى الآن</p>
         </div>
       )}
 
@@ -497,9 +506,9 @@ function DoctorStatusBanner({
           <Clock className="h-4 w-4 text-amber-600 shrink-0" />
           <div>
             <p className="text-sm font-medium text-amber-700">
-              Doctor is running ~{delayMinutes} min behind schedule
+              الطبيب متأخر ~{delayMinutes} دقيقة عن الجدول
             </p>
-            <p className="text-xs text-amber-600 mt-0.5">Your wait time has been adjusted</p>
+            <p className="text-xs text-amber-600 mt-0.5">تم تحديث وقت انتظارك تلقائياً</p>
           </div>
         </div>
       )}
@@ -510,11 +519,11 @@ function DoctorStatusBanner({
             <Coffee className="h-4 w-4 text-orange-600 shrink-0" />
             <div>
               <p className="text-sm font-medium text-orange-700">
-                Doctor is on break{breakReturnsAt ? ` — returns at ${breakReturnsAt}` : ""}
+                الطبيب في استراحة{breakReturnsAt ? ` — يعود عند ${breakReturnsAt}` : ""}
               </p>
               {breakRemainingSeconds && breakRemainingSeconds > 0 && (
                 <p className="text-xs text-orange-500 mt-0.5">
-                  Back in {Math.ceil(breakRemainingSeconds / 60)} min · Your position is saved
+                  يعود خلال {Math.ceil(breakRemainingSeconds / 60)} دقيقة · مكانك محفوظ
                 </p>
               )}
             </div>
@@ -526,8 +535,8 @@ function DoctorStatusBanner({
         <div className="rounded-xl bg-yellow-50 border border-yellow-200 px-4 py-3 flex items-center gap-3">
           <Pause className="h-4 w-4 text-yellow-600 shrink-0" />
           <div>
-            <p className="text-sm font-medium text-yellow-700">Queue is temporarily paused</p>
-            <p className="text-xs text-yellow-600 mt-0.5">Your position is saved. We&apos;ll notify you when it resumes.</p>
+            <p className="text-sm font-medium text-yellow-700">الطابور متوقف مؤقتاً</p>
+            <p className="text-xs text-yellow-600 mt-0.5">مكانك محفوظ، سنُعلمك عند استئناف الطابور.</p>
           </div>
         </div>
       )}
@@ -536,8 +545,8 @@ function DoctorStatusBanner({
         <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 flex items-center gap-3">
           <XCircle className="h-4 w-4 text-red-600 shrink-0" />
           <div>
-            <p className="text-sm font-medium text-red-700">Queue is closed to new patients</p>
-            <p className="text-xs text-red-500 mt-0.5">Existing patients will still be served</p>
+            <p className="text-sm font-medium text-red-700">الطابور مغلق أمام المرضى الجدد</p>
+            <p className="text-xs text-red-500 mt-0.5">المرضى الحاليون سيُستقبلون حتى النهاية</p>
           </div>
         </div>
       )}
@@ -547,7 +556,7 @@ function DoctorStatusBanner({
         <div className="rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 flex items-start gap-3">
           <Zap className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
           <div>
-            <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">From the Doctor</p>
+            <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">رسالة من الطبيب</p>
             <p className="text-sm font-medium text-blue-700 mt-0.5">{doctorMessage}</p>
           </div>
         </div>
