@@ -192,6 +192,41 @@ export type Database = {
           },
         ]
       }
+      clinic_patients: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          phone: string | null
+          provider_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          phone?: string | null
+          provider_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          provider_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_patients_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       doctor_schedules: {
         Row: {
           break_end: string | null
@@ -334,6 +369,7 @@ export type Database = {
           consultation_fee: number
           created_at: string | null
           id: string
+          is_deleted: boolean
           is_verified: boolean | null
           latitude: number | null
           license_number: string
@@ -356,6 +392,7 @@ export type Database = {
           consultation_fee: number
           created_at?: string | null
           id?: string
+          is_deleted?: boolean
           is_verified?: boolean | null
           latitude?: number | null
           license_number: string
@@ -378,6 +415,7 @@ export type Database = {
           consultation_fee?: number
           created_at?: string | null
           id?: string
+          is_deleted?: boolean
           is_verified?: boolean | null
           latitude?: number | null
           license_number?: string
@@ -453,6 +491,7 @@ export type Database = {
       queue_entries: {
         Row: {
           called_at: string | null
+          clinic_patient_id: string | null
           completed_at: string | null
           created_at: string
           defer_count: number
@@ -476,6 +515,7 @@ export type Database = {
         }
         Insert: {
           called_at?: string | null
+          clinic_patient_id?: string | null
           completed_at?: string | null
           created_at?: string
           defer_count?: number
@@ -499,6 +539,7 @@ export type Database = {
         }
         Update: {
           called_at?: string | null
+          clinic_patient_id?: string | null
           completed_at?: string | null
           created_at?: string
           defer_count?: number
@@ -521,6 +562,13 @@ export type Database = {
           visit_reason?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "queue_entries_clinic_patient_id_fkey"
+            columns: ["clinic_patient_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_patients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "queue_entries_patient_id_fkey"
             columns: ["patient_id"]
@@ -547,7 +595,7 @@ export type Database = {
       queue_entry_services: {
         Row: {
           assigned_at: string
-          assigned_by: string
+          assigned_by: string | null
           entry_id: string
           id: string
           price_override: number | null
@@ -556,7 +604,7 @@ export type Database = {
         }
         Insert: {
           assigned_at?: string
-          assigned_by: string
+          assigned_by?: string | null
           entry_id: string
           id?: string
           price_override?: number | null
@@ -565,7 +613,7 @@ export type Database = {
         }
         Update: {
           assigned_at?: string
-          assigned_by?: string
+          assigned_by?: string | null
           entry_id?: string
           id?: string
           price_override?: number | null
@@ -926,9 +974,13 @@ export type Database = {
       }
       users: {
         Row: {
+          allergies: string | null
           auth_provider: string | null
           avatar_url: string | null
+          blood_type: string | null
+          chronic_diseases: string | null
           created_at: string | null
+          current_medications: string | null
           date_of_birth: string | null
           email: string
           email_verified: boolean | null
@@ -936,15 +988,21 @@ export type Database = {
           gender: string | null
           id: string
           is_active: boolean | null
+          is_deleted: boolean
+          past_surgeries: string | null
           phone: string | null
           profile_completed: boolean | null
           role: string
           updated_at: string | null
         }
         Insert: {
+          allergies?: string | null
           auth_provider?: string | null
           avatar_url?: string | null
+          blood_type?: string | null
+          chronic_diseases?: string | null
           created_at?: string | null
+          current_medications?: string | null
           date_of_birth?: string | null
           email: string
           email_verified?: boolean | null
@@ -952,15 +1010,21 @@ export type Database = {
           gender?: string | null
           id: string
           is_active?: boolean | null
+          is_deleted?: boolean
+          past_surgeries?: string | null
           phone?: string | null
           profile_completed?: boolean | null
           role?: string
           updated_at?: string | null
         }
         Update: {
+          allergies?: string | null
           auth_provider?: string | null
           avatar_url?: string | null
+          blood_type?: string | null
+          chronic_diseases?: string | null
           created_at?: string | null
+          current_medications?: string | null
           date_of_birth?: string | null
           email?: string
           email_verified?: boolean | null
@@ -968,6 +1032,8 @@ export type Database = {
           gender?: string | null
           id?: string
           is_active?: boolean | null
+          is_deleted?: boolean
+          past_surgeries?: string | null
           phone?: string | null
           profile_completed?: boolean | null
           role?: string
