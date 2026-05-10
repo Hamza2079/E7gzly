@@ -9,7 +9,7 @@ import Link from "next/link"
 import {
   Clock, Users, Hash, AlertTriangle, CheckCircle, MapPin,
   Coffee, Pause, XCircle, MessageSquare, Send, Navigation,
-  Home, Car, Zap, ChevronRight, Star
+  Home, Car, Zap, ChevronRight, Star, Stethoscope
 } from "lucide-react"
 
 interface QueueTicketProps {
@@ -332,13 +332,13 @@ export default function QueueTicket({
                        {ticket.patientsBeforeYou === 0 ? "أنت التالي في القائمة" : `يوجد ${ticket.patientsBeforeYou} مرضى قبلك`}
                     </p>
                     <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
-                       {Math.round((ticket.currentServing / queueNumber) * 100) || 0}%
+                       {Math.round(((ticket.currentServing ?? 1) / queueNumber) * 100) || 0}%
                     </p>
                   </div>
                   <div className="h-2.5 w-full bg-blue-100 rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-blue-600 rounded-full transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(37,99,235,0.4)]"
-                      style={{ width: `${Math.min(100, ((ticket.currentServing / queueNumber) * 100)) || 5}%` }}
+                      style={{ width: `${Math.min(100, (((ticket.currentServing ?? 1) / queueNumber) * 100)) || 5}%` }}
                     />
                   </div>
                 </div>
