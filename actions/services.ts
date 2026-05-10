@@ -144,6 +144,7 @@ export async function assignServicesToEntry(
 
   if (assignments.length === 0) {
     revalidatePath("/dashboard/queue")
+    revalidatePath("/dashboard/reports")
     return { success: true, total: 0 }
   }
 
@@ -185,6 +186,7 @@ export async function assignServicesToEntry(
   }, 0)
 
   revalidatePath("/dashboard/queue")
+  revalidatePath("/dashboard/reports")
   return { success: true, total }
 }
 

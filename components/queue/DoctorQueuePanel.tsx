@@ -4,7 +4,7 @@ import { useQueueRealtime, useGraceCountdown } from "@/hooks/use-queue-realtime"
 import {
   callNextPatient, callNextNotReadyPatient, startConsultation, completePatient, skipPatient,
   openQueue, pauseQueue, resumeQueue, closeQueue,
-  sendDoctorMessage, clearDoctorMessage, extendGracePeriod
+  sendDoctorMessage, clearDoctorMessage, extendGracePeriod, endReceptionistSession
 } from "@/actions/queue"
 import { regenerateReceptionistSession } from "@/actions/receptionist"
 import { getServicesForProvider } from "@/actions/services"
@@ -130,13 +130,14 @@ export default function DoctorQueuePanel({ queueId, providerId, doctorName, spec
           {queueData.status === "open" ? (
             showBreakPicker ? (
               <div className="flex items-center gap-1">
-                <select value={breakMinutes} onChange={(e) => setBreakMinutes(Number(e.target.value))}
-                  className="text-xs border rounded-lg px-2 py-1.5 bg-white">
-                  <option value={5}>5 د</option><option value={10}>10 د</option>
-                  <option value={15}>15 د</option><option value={20}>20 د</option>
-                  <option value={30}>30 د</option><option value={45}>45 د</option>
-                  <option value={60}>ساعة</option>
-                </select>
+                <input
+                  type="number"
+                  value={breakMinutes}
+                  onChange={(e) => setBreakMinutes(Math.max(1, Number(e.target.value)))}
+                  className="w-16 text-xs border rounded-lg px-2 py-1.5 bg-white font-bold text-center"
+                  min={1}
+                />
+                <span className="text-[10px] text-gray-400 font-bold ml-1">د</span>
                 <button onClick={() => { handleAction(() => pauseQueue(queueId!, breakMinutes)); setShowBreakPicker(false) }}
                   className="px-3 py-1.5 rounded-lg text-sm font-bold bg-orange-500 text-white hover:bg-orange-600 transition">
                   <Coffee className="h-3.5 w-3.5" />
@@ -173,6 +174,16 @@ export default function DoctorQueuePanel({ queueId, providerId, doctorName, spec
                 <Users className="h-3.5 w-3.5" /> رابط الاستقبال
               </button>
             </div>
+          )}
+          {queueData.sessionToken && (
+            <button 
+              onClick={() => handleAction(() => endReceptionistSession(queueId!))}
+              disabled={isPending}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 flex items-center gap-1 transition whitespace-nowrap ml-1"
+              title="إنهاء جلسة الاستقبال"
+            >
+              إنهاء الاستقبال
+            </button>
           )}
         </div>
       </div>
@@ -392,7 +403,7 @@ export default function DoctorQueuePanel({ queueId, providerId, doctorName, spec
                                 {entry.users?.avatar_url ? (
                                   <img src={entry.users.avatar_url} className="w-full h-full object-cover" alt="Patient" />
                                 ) : (
-                                  <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(getPatientName(entry))}&background=e2e8f0&color=475569`} alt="Patient" />
+                                  <img src="https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y" alt="Patient" />
                                 )}
                               </div>
                               <div>

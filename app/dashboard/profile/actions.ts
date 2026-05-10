@@ -20,8 +20,6 @@ export async function updateDoctorProfile(formData: FormData) {
   const bio = formData.get("bio") as string
   const yearsExpStr = formData.get("yearsOfExperience")
   const yearsOfExperience = yearsExpStr ? parseInt(yearsExpStr as string) : 0
-  const feeStr = formData.get("consultationFee")
-  const consultationFee = feeStr ? parseInt(feeStr as string) : 0
   const clinicName = formData.get("clinicName") as string
   const clinicAddress = formData.get("clinicAddress") as string
 
@@ -48,7 +46,6 @@ export async function updateDoctorProfile(formData: FormData) {
       license_number: licenseNumber,
       bio: bio || null,
       years_of_experience: yearsOfExperience,
-      consultation_fee: consultationFee,
       clinic_name: clinicName || null,
       clinic_address: clinicAddress || null,
     })
@@ -60,5 +57,38 @@ export async function updateDoctorProfile(formData: FormData) {
   }
 
   revalidatePath("/dashboard/profile")
+  revalidatePath("/doctors")
+}
+
+export async function uploadAvatar(formData: FormData) {
+  const supabase = await createServer()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Must be logged in")
+
+  const file = formData.get("file") as File
+  if (!file) throw new Error("No file uploaded")
+
+  const fileExt = file.name.split('.').pop()
+  const filePath = `${user.id}/${Math.random()}.${fileExt}`
+
+  const { error: uploadError } = await supabase.storage
+    .from('avatars')
+    .upload(filePath, file, { upsert: true })
+
+  if (uploadError) throw new Error(uploadError.message)
+
+  const { data: publicUrlData } = supabase.storage
+    .from('avatars')
+    .getPublicUrl(filePath)
+
+  const { error: updateError } = await (supabase as any)
+    .from("users")
+    .update({ avatar_url: publicUrlData.publicUrl })
+    .eq("id", user.id)
+
+  if (updateError) throw new Error(updateError.message)
+
+  revalidatePath("/dashboard/profile")
+  revalidatePath("/profile")
   revalidatePath("/doctors")
 }

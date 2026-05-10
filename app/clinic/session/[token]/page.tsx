@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { createServer } from "@/lib/supabase/server"
+import { receptionistQueueAllowsOperations } from "@/lib/utils"
 import { notFound } from "next/navigation"
 import ReceptionistQueuePanel from "@/components/queue/ReceptionistQueuePanel"
 
@@ -14,8 +15,21 @@ export default async function ReceptionistSessionPage({ params }: { params: Prom
     .eq("session_token", token)
     .single()
 
-  if (!queue || queue.status !== "open") {
+  if (!queue) {
     return notFound()
+  }
+
+  if (!receptionistQueueAllowsOperations(queue.status)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-6 text-center">
+        <div className="max-w-md rounded-3xl bg-white p-8 shadow-sm border border-gray-100">
+          <h2 className="text-xl font-bold text-gray-900">Queue Finished</h2>
+          <p className="mt-2 text-gray-500">
+            This queue day has been completed and the receptionist link is no longer active.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   if (queue.session_expires_at && new Date(queue.session_expires_at) < new Date()) {

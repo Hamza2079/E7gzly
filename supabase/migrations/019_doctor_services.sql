@@ -59,11 +59,11 @@ CREATE TRIGGER services_updated_at
 CREATE TABLE IF NOT EXISTS public.queue_entry_services (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   entry_id        UUID NOT NULL REFERENCES public.queue_entries(id) ON DELETE CASCADE,
-  service_id      UUID NOT NULL REFERENCES public.services(id) ON DELETE RESTRICT,
+  service_id      UUID NOT NULL REFERENCES public.services(id) ON DELETE CASCADE,
   quantity        INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0),
   price_override  NUMERIC(10,2) CHECK (price_override >= 0),
   assigned_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-  assigned_by     UUID NOT NULL REFERENCES public.users(id),
+  assigned_by     UUID REFERENCES public.users(id) ON DELETE SET NULL,
 
   CONSTRAINT entry_services_unique UNIQUE (entry_id, service_id)
 );

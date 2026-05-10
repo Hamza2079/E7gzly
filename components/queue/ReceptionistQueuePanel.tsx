@@ -2,6 +2,7 @@
 
 import { useQueueRealtime, useGraceCountdown } from "@/hooks/use-queue-realtime"
 import { receptionistAddWalkIn, receptionistMarkPatientReady, receptionistCallNextPatient, receptionistCallNextNotReadyPatient } from "@/actions/receptionist"
+import { receptionistQueueAllowsOperations } from "@/lib/utils"
 import { useState, useTransition, useEffect, useRef } from "react"
 import { Users, Plus, CheckCircle, Clock, FileText, AlertTriangle } from "lucide-react"
 
@@ -55,15 +56,26 @@ export default function ReceptionistQueuePanel({ queueId, sessionToken }: { queu
     })
   }
 
-  if (!queueData || queueData.status !== "open") {
-    return <div className="text-center py-12 text-gray-500 font-medium" dir="rtl">الطابور مغلق حالياً. لا يمكن استقبال مرضى.</div>
+  if (!queueData || !receptionistQueueAllowsOperations(queueData.status)) {
+    return (
+      <div className="text-center py-12 text-gray-500 font-medium" dir="rtl">
+        انتهى يوم هذا الطابور. الرابط لم يعد صالحاً.
+      </div>
+    )
   }
+
+  const closedToNewAppPatients = queueData.status !== "open"
 
   return (
     <div className="grid gap-6 md:grid-cols-3" dir="rtl">
       {/* Left Col - Queue */}
       <div className="md:col-span-2 space-y-6">
-        
+        {closedToNewAppPatients && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 font-medium">
+            الطابور ليس في وضع «مفتوح» للمرضى عبر التطبيق، لا يزال بإمكانك إدارة الاستدعاءات ومراجعي اليوم من هنا حتى يضغط الطبيب على «إنهاء الاستقبال».
+          </div>
+        )}
+
         {/* Currently Called / Call Controls */}
         <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
           {calledPatient ? (

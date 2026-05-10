@@ -3,6 +3,7 @@
 
 import { redirect } from "next/navigation"
 import { createServer } from "@/lib/supabase/server"
+import { createClient } from "@supabase/supabase-js"
 
 export async function signUpWithCredentials(formData: FormData) {
   const supabase = await createServer()
@@ -19,10 +20,15 @@ export async function signUpWithCredentials(formData: FormData) {
   const licenseNumber = formData.get("licenseNumber") as string
   const bio = formData.get("bio") as string
   const yearsOfExperience = parseInt(formData.get("yearsOfExperience") as string) || 0
-  const consultationFee = parseFloat(formData.get("consultationFee") as string) || 0
   const clinicName = formData.get("clinicName") as string
   const clinicAddress = formData.get("clinicAddress") as string
   const city = formData.get("city") as string
+
+  // Medical History (for patients)
+  const bloodType = formData.get("bloodType") as string
+  const allergies = formData.get("allergies") as string
+  const chronicDiseases = formData.get("chronicDiseases") as string
+  const currentMedications = formData.get("currentMedications") as string
 
   const { data: authData, error } = await supabase.auth.signUp({
     email,
@@ -39,10 +45,15 @@ export async function signUpWithCredentials(formData: FormData) {
         license_number: licenseNumber || null,
         bio: bio || null,
         years_of_experience: yearsOfExperience || 0,
-        consultation_fee: consultationFee || 0,
+        consultation_fee: 0,
         clinic_name: clinicName || null,
         clinic_address: clinicAddress || null,
         city: city || null,
+        // Patient specific fields
+        blood_type: bloodType || null,
+        allergies: allergies || null,
+        chronic_diseases: chronicDiseases || null,
+        current_medications: currentMedications || null,
       },
     },
   })
@@ -50,6 +61,40 @@ export async function signUpWithCredentials(formData: FormData) {
   if (error) {
     console.error("Sign up error:", error.message)
     redirect("/register?error=" + encodeURIComponent(error.message))
+  }
+
+  // Insert services using admin client
+  if (role === "provider" && authData?.user) {
+    const servicesStr = formData.get("services") as string
+    if (servicesStr) {
+      try {
+        const servicesArr = JSON.parse(servicesStr)
+        const adminSupabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!,
+          { auth: { autoRefreshToken: false, persistSession: false } }
+        )
+        const { data: provider } = await adminSupabase
+          .from("providers")
+          .select("id")
+          .eq("user_id", authData.user.id)
+          .single()
+        
+        if (provider) {
+          await adminSupabase.from("services").insert(
+            servicesArr.map((s: any) => ({
+              provider_id: provider.id,
+              name_en: s.name,
+              name_ar: s.name,
+              price: parseFloat(s.price),
+              is_active: true
+            }))
+          )
+        }
+      } catch (e) {
+        console.error("Failed to insert services", e)
+      }
+    }
   }
 
   // If doctor, redirect and show wait for admin message

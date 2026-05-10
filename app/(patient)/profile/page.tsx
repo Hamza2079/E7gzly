@@ -3,6 +3,8 @@ import { redirect } from "next/navigation"
 import { updatePatientProfile, updateAvatarUrl } from "./actions"
 import { UserCircle, Activity, FileText } from "lucide-react"
 import AvatarUpload from "@/components/profile/AvatarUpload"
+import ChangePasswordForm from "@/components/auth/ChangePasswordForm"
+import SubmitButton from "@/components/profile/SubmitButton"
 
 export const metadata = {
   title: "Profile Settings",
@@ -179,21 +181,25 @@ export default async function ProfilePage() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 pt-4 pb-20">
-          <button
-            type="submit"
-            className="flex-1 h-14 rounded-2xl bg-blue-600 text-white font-black text-base shadow-xl shadow-blue-500/25 hover:bg-blue-700 active:scale-[0.98] transition-all"
-          >
-            حفظ جميع التغييرات
-          </button>
-          <button
-             type="reset"
-             className="h-14 px-8 rounded-2xl border border-gray-200 text-gray-400 font-bold hover:bg-gray-50 transition-all"
-          >
-            إلغاء
-          </button>
+        {/* Sticky Footer for Mobile */}
+        <div className="fixed bottom-16 inset-x-0 p-4 bg-white/80 backdrop-blur-xl border-t border-gray-100 z-40 md:relative md:bottom-0 md:inset-auto md:p-0 md:bg-transparent md:border-0 md:pt-4 md:pb-20">
+          <div className="flex flex-col sm:flex-row gap-4 max-w-2xl mx-auto">
+            <SubmitButton className="flex-1" />
+            <button
+               type="reset"
+               className="hidden sm:flex h-14 px-8 items-center justify-center rounded-2xl border border-gray-200 text-gray-400 font-bold hover:bg-gray-50 transition-all"
+            >
+              إلغاء
+            </button>
+          </div>
         </div>
       </form>
+
+      {profile?.auth_provider !== 'google' && (
+        <div className="mt-8 pb-20" dir="rtl">
+          <ChangePasswordForm userEmail={user.email!} />
+        </div>
+      )}
     </div>
   )
 }

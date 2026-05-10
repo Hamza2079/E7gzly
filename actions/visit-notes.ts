@@ -83,6 +83,7 @@ export async function upsertVisitNote(
 
   if (error) return { error: error.message }
   revalidatePath("/dashboard/queue")
+  revalidatePath("/dashboard/reports")
   return { success: true }
 }
 

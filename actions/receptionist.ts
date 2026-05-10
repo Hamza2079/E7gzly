@@ -3,6 +3,7 @@
 
 import { revalidatePath } from "next/cache"
 import { createServer, createAdminClient } from "@/lib/supabase/server"
+import { receptionistQueueAllowsOperations } from "@/lib/utils"
 
 // ============================================================
 // RECEPTIONIST QUEUE ACTIONS
@@ -21,8 +22,9 @@ export async function receptionistAddWalkIn(sessionToken: string, patientName: s
     .single()
 
   if (!queue) return { error: "Invalid session token" }
-  if (queue.status !== "open") return { error: "Queue is not open" }
-  
+  if (!receptionistQueueAllowsOperations(queue.status))
+    return { error: "This queue day has ended. The receptionist link is no longer valid." }
+
   if (queue.session_expires_at && new Date(queue.session_expires_at) < new Date()) {
     return { error: "Session has expired" }
   }
@@ -93,7 +95,8 @@ export async function receptionistMarkPatientReady(sessionToken: string, entryId
     .single()
 
   if (!queue) return { error: "Invalid session token" }
-  if (queue.status !== "open") return { error: "Queue is not open" }
+  if (!receptionistQueueAllowsOperations(queue.status))
+    return { error: "This queue day has ended. The receptionist link is no longer valid." }
   if (queue.session_expires_at && new Date(queue.session_expires_at) < new Date()) {
     return { error: "Session has expired" }
   }
@@ -149,7 +152,8 @@ export async function receptionistCallNextPatient(sessionToken: string) {
     .single()
 
   if (!queue) return { error: "Invalid session token" }
-  if (queue.status !== "open") return { error: "Queue is not open" }
+  if (!receptionistQueueAllowsOperations(queue.status))
+    return { error: "This queue day has ended. The receptionist link is no longer valid." }
   if (queue.session_expires_at && new Date(queue.session_expires_at) < new Date()) {
     return { error: "Session has expired" }
   }
@@ -209,7 +213,8 @@ export async function receptionistCallNextNotReadyPatient(sessionToken: string) 
     .single()
 
   if (!queue) return { error: "Invalid session token" }
-  if (queue.status !== "open") return { error: "Queue is not open" }
+  if (!receptionistQueueAllowsOperations(queue.status))
+    return { error: "This queue day has ended. The receptionist link is no longer valid." }
   if (queue.session_expires_at && new Date(queue.session_expires_at) < new Date()) {
     return { error: "Session has expired" }
   }

@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Search, Ticket, User, LayoutDashboard } from "lucide-react"
+import { Home, Search, Ticket, User, LayoutDashboard, FileText } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export default function BottomNav({ role }: { role: string | null }) {
@@ -32,8 +32,14 @@ export default function BottomNav({ role }: { role: string | null }) {
       show: !!role
     },
     {
+      label: "زياراتي",
+      href: "/my-visits",
+      icon: FileText,
+      show: role === "patient"
+    },
+    {
       label: "حسابي",
-      href: "/profile",
+      href: role === "provider" ? "/dashboard/profile" : "/profile",
       icon: User,
       show: !!role
     }

@@ -3,6 +3,9 @@ import { redirect } from "next/navigation"
 import { updateDoctorProfile } from "./actions"
 import { User, Stethoscope } from "lucide-react"
 
+import AvatarUpload from "@/components/queue/AvatarUpload"
+import ChangePasswordForm from "@/components/auth/ChangePasswordForm"
+
 export const metadata = {
   title: "إعدادات الملف الشخصي",
 }
@@ -31,14 +34,16 @@ export default async function DoctorProfilePage() {
           
           {/* Section 1: Personal Info */}
           <div>
-            <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
+            <div className="flex items-center gap-3 border-b border-gray-100 pb-4 mb-6">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-600">
                 <User className="h-5 w-5" />
               </div>
               <h2 className="text-xl font-semibold text-gray-900">المعلومات الشخصية</h2>
             </div>
+
+            <AvatarUpload currentAvatarUrl={userProfile.avatar_url} />
             
-            <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700">الاسم الكامل</label>
                 <input
@@ -128,16 +133,6 @@ export default async function DoctorProfilePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">رسوم الكشف (جنيه مصري)</label>
-                  <input
-                    type="number"
-                    name="consultationFee"
-                    defaultValue={providerProfile?.consultation_fee || 0}
-                    className="mt-2 block w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  />
-                </div>
-
-                <div>
                   <label className="block text-sm font-medium text-gray-700">اسم العيادة / المستشفى</label>
                   <input
                     type="text"
@@ -170,6 +165,12 @@ export default async function DoctorProfilePage() {
           </div>
         </form>
       </div>
+
+      {userProfile.auth_provider !== 'google' && (
+        <div className="mt-8 pb-20">
+          <ChangePasswordForm userEmail={user.email!} />
+        </div>
+      )}
     </div>
   )
 }

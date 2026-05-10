@@ -6,6 +6,8 @@ import {
   Stethoscope, MapPin, ArrowLeft, History
 } from "lucide-react"
 import QueueTicket from "@/components/queue/QueueTicket"
+import MyReservationCard from "@/components/reservations/MyReservationCard"
+import { getMyReservations } from "@/actions/reservations"
 
 export const metadata = { title: "طابوري | E7gzly" }
 
@@ -51,6 +53,24 @@ export default async function MyQueuePage() {
   const active = activeRaw as any
   const all = (allRaw || []) as any[]
   const history = all.filter(e => !active || e.id !== active.id)
+
+  const upcomingReservations = await getMyReservations()
+  const resProviderIds = [...new Set(upcomingReservations.map((r) => r.providerId))]
+  const resProviderMeta = new Map<string, { name: string; specialty: string }>()
+  if (resProviderIds.length > 0) {
+    const { data: rp } = await supabase
+      .from("providers")
+      .select("id, users!user_id(full_name), specialties(name_ar, name)")
+      .in("id", resProviderIds)
+    for (const row of rp || []) {
+      const u = row.users as { full_name?: string } | null | undefined
+      const sp = row.specialties as { name_ar?: string; name?: string } | null | undefined
+      resProviderMeta.set(row.id as string, {
+        name: u?.full_name ? `د. ${u.full_name}` : "طبيب",
+        specialty: sp?.name_ar || sp?.name || "عام",
+      })
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
@@ -107,6 +127,29 @@ export default async function MyQueuePage() {
                 className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-8 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/30 hover:bg-blue-700 transition">
                 ابحث عن طبيب
               </Link>
+            </div>
+          </div>
+        )}
+
+        {/* ── Upcoming reservations — إلغاء الحجز المسبق من هنا أيضاً ── */}
+        {upcomingReservations.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <Calendar className="h-4 w-4 text-indigo-500" />
+              <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest">حجوزاتي المسبقة</h2>
+            </div>
+            <div className="space-y-4">
+              {upcomingReservations.map((res) => {
+                const meta = resProviderMeta.get(res.providerId)
+                return (
+                  <MyReservationCard
+                    key={res.id}
+                    reservation={res}
+                    doctorName={meta?.name || "طبيب"}
+                    specialty={meta?.specialty}
+                  />
+                )
+              })}
             </div>
           </div>
         )}

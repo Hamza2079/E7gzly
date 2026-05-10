@@ -3,6 +3,7 @@
 
 import { redirect } from "next/navigation"
 import { createServer } from "@/lib/supabase/server"
+import { createClient } from "@supabase/supabase-js"
 
 export async function completeProfile(formData: FormData) {
   const supabase = await createServer()
@@ -22,6 +23,12 @@ export async function completeProfile(formData: FormData) {
   const gender = formData.get("gender") as string
   const dateOfBirth = formData.get("dateOfBirth") as string
 
+  // Medical History (for patients)
+  const bloodType = formData.get("bloodType") as string
+  const allergies = formData.get("allergies") as string
+  const chronicDiseases = formData.get("chronicDiseases") as string
+  const currentMedications = formData.get("currentMedications") as string
+
   // Update the user profile (using upsert so missing users are created)
   const { error: updateError } = await supabase
     .from("users")
@@ -34,6 +41,10 @@ export async function completeProfile(formData: FormData) {
       date_of_birth: dateOfBirth || null,
       role: role === "doctor" ? "provider" : "patient",
       profile_completed: true,
+      blood_type: bloodType || null,
+      allergies: allergies || null,
+      chronic_diseases: chronicDiseases || null,
+      current_medications: currentMedications || null,
       updated_at: new Date().toISOString(),
     })
 
@@ -48,7 +59,6 @@ export async function completeProfile(formData: FormData) {
     const licenseNumber = formData.get("licenseNumber") as string
     const bio = formData.get("bio") as string
     const yearsOfExperience = parseInt(formData.get("yearsOfExperience") as string) || 0
-    const consultationFee = parseFloat(formData.get("consultationFee") as string) || 0
     const clinicName = formData.get("clinicName") as string
     const clinicAddress = formData.get("clinicAddress") as string
     const city = formData.get("city") as string
@@ -59,7 +69,7 @@ export async function completeProfile(formData: FormData) {
       license_number: licenseNumber,
       bio: bio || null,
       years_of_experience: yearsOfExperience,
-      consultation_fee: consultationFee,
+      consultation_fee: 0,
       clinic_name: clinicName || null,
       clinic_address: clinicAddress || null,
       city: city,
@@ -93,6 +103,41 @@ export async function completeProfile(formData: FormData) {
     if (error) {
       console.error("Error saving provider:", error)
       redirect("/complete-profile?error=" + encodeURIComponent(error.message))
+    }
+
+    // Process services
+    const servicesStr = formData.get("services") as string
+    if (servicesStr) {
+      try {
+        const servicesArr = JSON.parse(servicesStr)
+        const adminSupabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!,
+          { auth: { autoRefreshToken: false, persistSession: false } }
+        )
+        
+        // We know the provider ID exists, let's fetch it just to be sure, or we can use `existing.id`
+        // Wait, if it was newly inserted, we don't have the ID from `insert(providerData)`.
+        const { data: newProvider } = await adminSupabase
+          .from("providers")
+          .select("id")
+          .eq("user_id", user.id)
+          .single()
+
+        if (newProvider) {
+           await adminSupabase.from("services").insert(
+             servicesArr.map((s: any) => ({
+               provider_id: newProvider.id,
+               name_en: s.name,
+               name_ar: s.name,
+               price: parseFloat(s.price),
+               is_active: true
+             }))
+           )
+        }
+      } catch (e) {
+        console.error("Failed to insert services", e)
+      }
     }
 
     redirect("/pending-approval")

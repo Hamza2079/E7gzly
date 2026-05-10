@@ -7,13 +7,15 @@ export default async function Navbar() {
   const { data: { user } } = await supabase.auth.getUser()
 
   let role: string | null = null
+  let profileData: any = null
   if (user) {
     const { data: profile } = await supabase
       .from("users")
-      .select("role, full_name")
+      .select("role, full_name, avatar_url")
       .eq("id", user.id)
       .single()
     role = profile?.role || null
+    profileData = profile
   }
 
   return (
@@ -56,14 +58,21 @@ export default async function Navbar() {
                 
                 {role === "patient" && (
                   <div className="group relative z-50 py-4">
-                    <button className="flex items-center gap-1.5 text-sm font-bold text-gray-600 hover:text-blue-600 transition-colors">
+                    <button className="flex items-center gap-2 text-sm font-bold text-gray-600 hover:text-blue-600 transition-colors">
+                      <div className="h-7 w-7 rounded-full border border-gray-200 overflow-hidden bg-blue-50 text-[10px] flex items-center justify-center font-bold text-blue-600">
+                        {profileData?.avatar_url ? (
+                          <img src={profileData.avatar_url} alt="Profile" className="h-full w-full object-cover" />
+                        ) : (
+                          <img src="https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y" alt="Profile" />
+                        )}
+                      </div>
                       حسابي
                       <svg className="h-4 w-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                     </button>
                     <div className="absolute right-0 top-full hidden w-52 flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl group-hover:flex animate-in fade-in slide-in-from-top-2">
                       <div className="px-4 py-3 border-b border-gray-50">
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">مرحباً بك</p>
-                        <p className="text-sm font-bold text-gray-900 truncate">{(user as any).email}</p>
+                        <p className="text-sm font-bold text-gray-900 truncate">{profileData?.full_name || (user as any).email}</p>
                       </div>
                       <Link href="/profile" className="px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600">إعدادات الملف الشخصي</Link>
                       <Link href="/my-visits" className="px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600">زياراتي</Link>
@@ -95,9 +104,13 @@ export default async function Navbar() {
               دخول
             </Link>
           )}
-          {user && (
-             <div className="md:hidden h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
-                {user.email?.[0].toUpperCase()}
+          {user && profileData && (
+             <div className="md:hidden h-8 w-8 rounded-full border border-gray-200 overflow-hidden bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0">
+                {profileData.avatar_url ? (
+                  <img src={profileData.avatar_url} alt="Profile" className="h-full w-full object-cover" />
+                ) : (
+                  profileData.full_name?.[0]?.toUpperCase() || user.email?.[0].toUpperCase()
+                )}
              </div>
           )}
         </div>

@@ -39,6 +39,14 @@ export default async function DoctorProfilePage({ params }) {
     .eq("date", today)
     .maybeSingle()
 
+  // Fetch reviews for this provider
+  const { data: reviews } = await supabase
+    .from("reviews")
+    .select("rating, comment, created_at, users!reviews_patient_id_fkey(full_name, avatar_url)")
+    .eq("provider_id", providerId)
+    .order("created_at", { ascending: false })
+    .limit(5)
+
   // Queue stats
   let waitingCount = 0
   let atClinicCount = 0
@@ -63,19 +71,35 @@ export default async function DoctorProfilePage({ params }) {
 
   const schedule = queue?.doctor_schedules
   const maxActive = schedule?.max_active || 33
+  const endTime = schedule?.end_time?.substring(0, 5)
   const estimatedWait = waitingCount * (queue?.avg_duration || 10)
   const isFull = waitingCount >= maxActive
-  const isOpen = queue?.status === "open"
+  
+  // Auto-close logic
+  const nowInCairo = new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Cairo" }))
+  const currentTimeStr = `${String(nowInCairo.getHours()).padStart(2, '0')}:${String(nowInCairo.getMinutes()).padStart(2, '0')}`
+  const isPastEndTime = endTime && currentTimeStr > endTime
+
+  const isOpen = queue?.status === "open" && !isPastEndTime
 
   const { data: { user: authUser } } = await supabase.auth.getUser()
 
-  let canJoin = isOpen && !isFull && !!authUser
+  let authUserRole = null
+  if (authUser) {
+    const { data: authProfile } = await supabase.from("users").select("role").eq("id", authUser.id).single()
+    authUserRole = authProfile?.role
+  }
+  const isProvider = authUserRole === "provider"
+
+  let canJoin = isOpen && !isFull && !!authUser && !isProvider
   let disabledReason = ""
   if (!authUser) disabledReason = "قم بتسجيل الدخول للحجز"
   else if (!queue) disabledReason = "لا يوجد طابور مفتوح اليوم"
+  else if (isPastEndTime) disabledReason = "انتهى وقت العمل للعيادة اليوم."
   else if (queue.status === "paused") disabledReason = "الطابور في استراحة مؤقتة"
   else if (queue.status === "closed") disabledReason = "الطابور مغلق"
   else if (isFull) disabledReason = "الطابور مكتمل"
+  else if (isProvider) disabledReason = "لا يمكن للأطباء الانضمام للطابور"
 
   // Future reservations data
   const [availableDays, myReservations] = await Promise.all([
@@ -148,18 +172,36 @@ export default async function DoctorProfilePage({ params }) {
             {/* Patient Feedback */}
             <div className="pt-8 border-t border-gray-100">
               <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-4">آراء المرضى</h2>
-              <div className="rounded-3xl border border-gray-100 bg-white p-8 shadow-sm">
-                 <div className="flex gap-1 mb-3">
-                   {[1,2,3,4,5].map(i => <Star key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />)}
-                 </div>
-                 <p className="text-sm font-medium italic text-gray-800 leading-relaxed mb-4">
-                   &quot;د. {user?.full_name?.split(' ')[0]} طبيب متميز يعطيك وقته ويشرح كل شيء بوضوح. أنصح به بشدة.&quot;
-                 </p>
-                 <div className="flex items-center gap-3">
-                   <UserCircle className="h-8 w-8 text-gray-300" />
-                   <p className="text-xs font-semibold text-gray-500">— مريض موثق</p>
-                 </div>
-              </div>
+              {(!reviews || reviews.length === 0) ? (
+                <div className="rounded-3xl border border-gray-100 bg-gray-50 p-8 text-center">
+                  <p className="text-sm font-medium text-gray-500">لا توجد تقييمات حتى الآن</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {reviews.map((rev: any, idx: number) => (
+                    <div key={idx} className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+                       <div className="flex gap-1 mb-3">
+                         {Array.from({ length: 5 }).map((_, i) => (
+                           <Star key={i} className={`h-3 w-3 ${i < rev.rating ? "fill-yellow-400 text-yellow-400" : "fill-gray-200 text-gray-200"}`} />
+                         ))}
+                       </div>
+                       <p className="text-sm font-medium text-gray-800 leading-relaxed mb-4">
+                         &quot;{rev.comment}&quot;
+                       </p>
+                       <div className="flex items-center gap-3">
+                         <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center">
+                           {rev.users?.avatar_url ? (
+                             <img src={rev.users.avatar_url} alt="Profile" className="h-full w-full object-cover" />
+                           ) : (
+                             <UserCircle className="h-full w-full text-gray-400" />
+                           )}
+                         </div>
+                         <p className="text-xs font-semibold text-gray-500">{rev.users?.full_name || "مريض موثق"}</p>
+                       </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -222,45 +264,47 @@ export default async function DoctorProfilePage({ params }) {
              </div>
 
              {/* ===== FUTURE RESERVATIONS SECTION ===== */}
-             <div className="rounded-[1.5rem] border border-gray-100 bg-white p-6 shadow-sm">
-               <div className="flex items-center gap-3 mb-5">
-                 <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center shrink-0">
-                   <CalendarDays className="h-5 w-5 text-white" />
+             {!isProvider && (
+               <div className="rounded-[1.5rem] border border-gray-100 bg-white p-6 shadow-sm">
+                 <div className="flex items-center gap-3 mb-5">
+                   <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center shrink-0">
+                     <CalendarDays className="h-5 w-5 text-white" />
+                   </div>
+                   <div>
+                     <h3 className="font-bold text-gray-900">حجز مسبق</h3>
+                     <p className="text-xs text-gray-400 mt-0.5">احجز موعدك في الأيام القادمة</p>
+                   </div>
                  </div>
-                 <div>
-                   <h3 className="font-bold text-gray-900">حجز مسبق</h3>
-                   <p className="text-xs text-gray-400 mt-0.5">احجز موعدك في الأيام القادمة</p>
-                 </div>
+
+                 {/* My existing reservation for this doctor */}
+                 {myDoctorReservations.length > 0 && (
+                   <div className="mb-5 space-y-3">
+                     <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">حجوزاتك</p>
+                     {myDoctorReservations.map(r => (
+                       <MyReservationCard
+                         key={r.id}
+                         reservation={r}
+                         doctorName={`د. ${user?.full_name}`}
+                         specialty={specialty?.name}
+                       />
+                     ))}
+                   </div>
+                 )}
+
+                 {availableDays.length > 0 ? (
+                   <AvailableDaysPicker
+                     providerId={providerId}
+                     availableDays={availableDays}
+                   />
+                 ) : (
+                   <div className="rounded-2xl bg-gray-50 border border-gray-100 p-5 text-center">
+                     <Clock className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                     <p className="text-sm font-semibold text-gray-500">الحجز المسبق غير متاح حالياً</p>
+                     <p className="text-xs text-gray-400 mt-1">تابع الطابور المباشر أعلاه</p>
+                   </div>
+                 )}
                </div>
-
-               {/* My existing reservation for this doctor */}
-               {myDoctorReservations.length > 0 && (
-                 <div className="mb-5 space-y-3">
-                   <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">حجوزاتك</p>
-                   {myDoctorReservations.map(r => (
-                     <MyReservationCard
-                       key={r.id}
-                       reservation={r}
-                       doctorName={`د. ${user?.full_name}`}
-                       specialty={specialty?.name}
-                     />
-                   ))}
-                 </div>
-               )}
-
-               {availableDays.length > 0 ? (
-                 <AvailableDaysPicker
-                   providerId={providerId}
-                   availableDays={availableDays}
-                 />
-               ) : (
-                 <div className="rounded-2xl bg-gray-50 border border-gray-100 p-5 text-center">
-                   <Clock className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                   <p className="text-sm font-semibold text-gray-500">الحجز المسبق غير متاح حالياً</p>
-                   <p className="text-xs text-gray-400 mt-1">تابع الطابور المباشر أعلاه</p>
-                 </div>
-               )}
-             </div>
+             )}
           </div>
 
         </div>

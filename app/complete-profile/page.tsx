@@ -6,48 +6,61 @@ import { createClient } from "@/lib/supabase/client"
 
 export default function CompleteProfilePage() {
   const [role, setRole] = useState<"patient" | "doctor" | null>(null)
-  const [specialties, setSpecialties] = useState<{ id: string; name: string }[]>([])
+  const [specialties, setSpecialties] = useState<{ id: string; name: string; name_ar: string | null }[]>([])
+  const [services, setServices] = useState<{name: string, price: string}[]>([{name: "", price: ""}])
+
+  const addService = () => setServices([...services, {name: "", price: ""}])
+  const updateService = (index: number, field: "name"|"price", val: string) => {
+    const newServices = [...services]
+    newServices[index][field] = val
+    setServices(newServices)
+  }
+  const removeService = (index: number) => {
+    if (services.length > 1) {
+      setServices(services.filter((_, i) => i !== index))
+    }
+  }
 
   useEffect(() => {
     async function fetchSpecialties() {
       const supabase = createClient()
-      const { data } = await supabase.from("specialties").select("id, name")
+      const { data } = await supabase.from("specialties").select("id, name, name_ar")
       if (data) setSpecialties(data)
     }
     fetchSpecialties()
   }, [])
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12" dir="rtl">
       <div className="w-full max-w-lg space-y-8 rounded-xl bg-white p-8 shadow-lg">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-blue-600">E7gzly</h1>
-          <h2 className="mt-4 text-xl font-bold text-gray-900">Complete Your Profile</h2>
+          <h2 className="mt-4 text-xl font-bold text-gray-900">إكمال الملف الشخصي</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Tell us a bit about yourself to get started
+            أخبرنا قليلاً عن نفسك للبدء
           </p>
         </div>
 
         {/* Step 1: Role selection */}
         {!role && (
           <div className="space-y-4">
-            <p className="text-center text-sm font-medium text-gray-700">I am a...</p>
+            <p className="text-center text-sm font-medium text-gray-700">أنا...</p>
             <div className="grid grid-cols-2 gap-4">
               <button
                 onClick={() => setRole("patient")}
                 className="flex flex-col items-center gap-3 rounded-xl border-2 border-gray-200 p-6 transition-all hover:border-blue-500 hover:bg-blue-50"
               >
                 <span className="text-4xl">🏥</span>
-                <span className="font-semibold text-gray-900">Patient</span>
-                <span className="text-xs text-gray-500">Book appointments</span>
+                <span className="font-semibold text-gray-900">مريض</span>
+                <span className="text-xs text-gray-500">حجز المواعيد</span>
               </button>
               <button
                 onClick={() => setRole("doctor")}
                 className="flex flex-col items-center gap-3 rounded-xl border-2 border-gray-200 p-6 transition-all hover:border-blue-500 hover:bg-blue-50"
               >
                 <span className="text-4xl">🩺</span>
-                <span className="font-semibold text-gray-900">Doctor</span>
-                <span className="text-xs text-gray-500">Accept appointments</span>
+                <span className="font-semibold text-gray-900">طبيب</span>
+                <span className="text-xs text-gray-500">استقبال المرضى</span>
               </button>
             </div>
           </div>
@@ -64,19 +77,19 @@ export default function CompleteProfilePage() {
               onClick={() => setRole(null)}
               className="text-sm text-blue-600 hover:underline"
             >
-              ← Change role
+              ← تغيير الدور
             </button>
 
             {/* Common fields */}
             <div>
               <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
-                Full Name *
+                الاسم الكامل *
               </label>
               <input
                 id="fullName"
                 name="fullName"
                 type="text"
-                placeholder="Ahmed Hassan"
+                placeholder="أحمد حسن"
                 className="mt-1 block w-full rounded-lg border px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 required
               />
@@ -84,14 +97,15 @@ export default function CompleteProfilePage() {
 
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                Phone Number
+                رقم الهاتف
               </label>
               <input
                 id="phone"
                 name="phone"
                 type="tel"
                 placeholder="+201234567890"
-                className="mt-1 block w-full rounded-lg border px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="mt-1 block w-full rounded-lg border px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-left"
+                dir="ltr"
               />
             </div>
 
@@ -99,7 +113,7 @@ export default function CompleteProfilePage() {
               {/* Gender */}
               <div>
                 <label htmlFor="gender" className="block text-sm font-medium text-gray-700">
-                  Gender *
+                  الجنس *
                 </label>
                 <select
                   id="gender"
@@ -107,50 +121,86 @@ export default function CompleteProfilePage() {
                   className="mt-1 block w-full rounded-lg border bg-white px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   required
                 >
-                  <option value="">Select</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
+                  <option value="">اختر</option>
+                  <option value="male">ذكر</option>
+                  <option value="female">أنثى</option>
                 </select>
               </div>
 
               {/* Date of Birth */}
               <div>
                 <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700">
-                  Date of Birth *
+                  تاريخ الميلاد *
                 </label>
                 <input
                   id="dateOfBirth"
                   name="dateOfBirth"
                   type="date"
-                  className="mt-1 block w-full rounded-lg border px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="mt-1 block w-full rounded-lg border px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-left"
+                  dir="ltr"
                   required
                 />
               </div>
             </div>
 
+            {/* Patient-specific fields (Medical History) */}
+            {role === "patient" && (
+              <div className="space-y-4 border-t pt-4">
+                <p className="text-sm font-semibold text-gray-900">التاريخ الطبي (اختياري)</p>
+                
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="bloodType" className="block text-sm font-medium text-gray-700">فصيلة الدم</label>
+                    <select id="bloodType" name="bloodType" className="mt-1 block w-full rounded-lg border bg-white px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-left" dir="ltr">
+                      <option value="">غير معروف</option>
+                      <option value="A+">A+</option><option value="A-">A-</option>
+                      <option value="B+">B+</option><option value="B-">B-</option>
+                      <option value="AB+">AB+</option><option value="AB-">AB-</option>
+                      <option value="O+">O+</option><option value="O-">O-</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="allergies" className="block text-sm font-medium text-gray-700">حساسية من أدوية أو أطعمة</label>
+                    <input id="allergies" name="allergies" type="text" placeholder="مثال: البنسلين" className="mt-1 block w-full rounded-lg border px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="chronicDiseases" className="block text-sm font-medium text-gray-700">أمراض مزمنة (إن وجدت)</label>
+                  <input id="chronicDiseases" name="chronicDiseases" type="text" placeholder="مثال: السكري، ضغط الدم" className="mt-1 block w-full rounded-lg border px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                </div>
+                
+                <div>
+                  <label htmlFor="currentMedications" className="block text-sm font-medium text-gray-700">الأدوية الحالية</label>
+                  <textarea id="currentMedications" name="currentMedications" rows={2} placeholder="الأدوية التي تتناولها بانتظام" className="mt-1 block w-full rounded-lg border px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"></textarea>
+                </div>
+              </div>
+            )}
+
             {/* Doctor-specific fields */}
             {role === "doctor" && (
               <>
                 <hr className="my-4" />
-                <p className="text-sm font-semibold text-gray-900">Professional Information</p>
+                <p className="text-sm font-semibold text-gray-900">المعلومات المهنية</p>
 
                 <div>
                   <label htmlFor="licenseNumber" className="block text-sm font-medium text-gray-700">
-                    Medical License Number *
+                    رقم الترخيص الطبي *
                   </label>
                   <input
                     id="licenseNumber"
                     name="licenseNumber"
                     type="text"
                     placeholder="e.g. EG-12345"
-                    className="mt-1 block w-full rounded-lg border px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="mt-1 block w-full rounded-lg border px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-left"
+                    dir="ltr"
                     required
                   />
                 </div>
 
                 <div>
                   <label htmlFor="specialtyId" className="block text-sm font-medium text-gray-700">
-                    Specialty *
+                    التخصص *
                   </label>
                   <select
                     id="specialtyId"
@@ -158,10 +208,10 @@ export default function CompleteProfilePage() {
                     className="mt-1 block w-full rounded-lg border bg-white px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     required
                   >
-                    <option value="">Select a specialty</option>
+                    <option value="">اختر التخصص</option>
                     {specialties.map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.name}
+                        {s.name_ar || s.name}
                       </option>
                     ))}
                   </select>
@@ -169,76 +219,104 @@ export default function CompleteProfilePage() {
 
                 <div>
                   <label htmlFor="bio" className="block text-sm font-medium text-gray-700">
-                    Bio / Qualifications *
+                    نبذة / المؤهلات *
                   </label>
                   <textarea
                     id="bio"
                     name="bio"
                     rows={3}
-                    placeholder="Tell patients about your experience, education, and specializations..."
+                    placeholder="خبراتك، تعليمك، تخصصاتك الدقيقة..."
                     className="mt-1 block w-full rounded-lg border px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     required
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="yearsOfExperience" className="block text-sm font-medium text-gray-700">
-                      Years of Experience
-                    </label>
-                    <input
-                      id="yearsOfExperience"
-                      name="yearsOfExperience"
-                      type="number"
-                      min="0"
-                      placeholder="5"
-                      className="mt-1 block w-full rounded-lg border px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
+                <div>
+                  <label htmlFor="yearsOfExperience" className="block text-sm font-medium text-gray-700">
+                    سنوات الخبرة
+                  </label>
+                  <input
+                    id="yearsOfExperience"
+                    name="yearsOfExperience"
+                    type="number"
+                    min="0"
+                    placeholder="5"
+                    className="mt-1 block w-full rounded-lg border px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Dynamic Services */}
+                <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-900">الخدمات وأسعارها *</label>
+                    <button type="button" onClick={addService} className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-white px-2 py-1 rounded shadow-sm border border-blue-100">
+                      + إضافة خدمة
+                    </button>
                   </div>
-                  <div>
-                    <label htmlFor="consultationFee" className="block text-sm font-medium text-gray-700">
-                      Consultation Fee (EGP)
-                    </label>
-                    <input
-                      id="consultationFee"
-                      name="consultationFee"
-                      type="number"
-                      min="0"
-                      placeholder="350"
-                      className="mt-1 block w-full rounded-lg border px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
+                  <input type="hidden" name="services" value={JSON.stringify(services)} />
+                  <div className="space-y-3">
+                    {services.map((srv, idx) => (
+                      <div key={idx} className="flex gap-2 items-start">
+                        <input 
+                          type="text" 
+                          value={srv.name}
+                          onChange={(e) => updateService(idx, "name", e.target.value)}
+                          placeholder="اسم الخدمة (كشف، استشارة...)" 
+                          className="flex-1 rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                          required
+                        />
+                        <div className="relative w-28">
+                          <input 
+                            type="number" 
+                            value={srv.price}
+                            onChange={(e) => updateService(idx, "price", e.target.value)}
+                            placeholder="السعر" 
+                            min="0"
+                            className="w-full rounded-lg border px-3 py-2 pr-8 text-sm focus:border-blue-500 focus:outline-none text-left"
+                            dir="ltr"
+                            required
+                          />
+                          <span className="absolute right-3 top-2 text-xs text-gray-400">ر.س</span>
+                        </div>
+                        {services.length > 1 && (
+                          <button type="button" onClick={() => removeService(idx)} className="mt-1 text-red-500 hover:text-red-700 p-1">
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
 
                 <div>
                   <label htmlFor="clinicName" className="block text-sm font-medium text-gray-700">
-                    Clinic / Hospital Name
+                    اسم العيادة
                   </label>
                   <input
                     id="clinicName"
                     name="clinicName"
                     type="text"
-                    placeholder="Cairo Medical Center"
+                    placeholder="عيادة الشفاء"
                     className="mt-1 block w-full rounded-lg border px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
 
                 <div>
                   <label htmlFor="clinicAddress" className="block text-sm font-medium text-gray-700">
-                    Clinic Address
+                    عنوان العيادة
                   </label>
                   <input
                     id="clinicAddress"
                     name="clinicAddress"
                     type="text"
-                    placeholder="123 Main St, Maadi"
+                    placeholder="شارع 9، المعادي"
                     className="mt-1 block w-full rounded-lg border px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
 
                 <div>
                   <label htmlFor="city" className="block text-sm font-medium text-gray-700">
-                    City *
+                    المدينة *
                   </label>
                   <select
                     id="city"
@@ -246,14 +324,14 @@ export default function CompleteProfilePage() {
                     className="mt-1 block w-full rounded-lg border bg-white px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     required
                   >
-                    <option value="">Select city</option>
-                    <option value="Cairo">Cairo</option>
-                    <option value="Alexandria">Alexandria</option>
-                    <option value="Giza">Giza</option>
-                    <option value="Mansoura">Mansoura</option>
-                    <option value="Tanta">Tanta</option>
-                    <option value="Aswan">Aswan</option>
-                    <option value="Luxor">Luxor</option>
+                    <option value="">اختر المدينة</option>
+                    <option value="Cairo">القاهرة</option>
+                    <option value="Alexandria">الإسكندرية</option>
+                    <option value="Giza">الجيزة</option>
+                    <option value="Mansoura">المنصورة</option>
+                    <option value="Tanta">طنطا</option>
+                    <option value="Aswan">أسوان</option>
+                    <option value="Luxor">الأقصر</option>
                   </select>
                 </div>
               </>
@@ -263,7 +341,7 @@ export default function CompleteProfilePage() {
               type="submit"
               className="w-full rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
             >
-              {role === "doctor" ? "Submit for Review" : "Complete Profile"}
+              {role === "doctor" ? "إرسال للمراجعة" : "إتمام الملف الشخصي"}
             </button>
           </form>
         )}

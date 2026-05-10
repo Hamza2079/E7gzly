@@ -288,6 +288,7 @@ export async function createReservation(
 
     if (!error) {
       revalidatePath(`/doctors/${providerId}`)
+      revalidatePath("/my-queue")
       return {
         reservationId: reservation.id,
         reservationNumber: reservation.reservation_number,
@@ -331,19 +332,7 @@ export async function cancelReservation(reservationId: string) {
   }
 
   if (reservation.status === "converted") {
-    return { error: "تم تفعيل حجزك في قائمة الانتظار، لا يمكن الإلغاء" }
-  }
-
-  // Q3: Check if the queue for this day is already open
-  const { data: existingQueue } = await supabase
-    .from("queues")
-    .select("status")
-    .eq("provider_id", reservation.provider_id)
-    .eq("date", reservation.reserved_date)
-    .maybeSingle()
-
-  if (existingQueue && existingQueue.status === "open") {
-    return { error: "بدأ الدكتور العيادة، لا يمكن الإلغاء بعد فتح القائمة" }
+    return { error: "تم تحويل حجزك إلى الطابور. يمكنك المغادرة من شاشة «طابوري» بدلاً من إلغاء الحجز هنا." }
   }
 
   const { error } = await supabase
@@ -357,6 +346,8 @@ export async function cancelReservation(reservationId: string) {
 
   if (error) return { error: error.message }
   revalidatePath("/dashboard")
+  revalidatePath("/my-queue")
+  revalidatePath("/doctors/" + reservation.provider_id)
   return { success: true }
 }
 

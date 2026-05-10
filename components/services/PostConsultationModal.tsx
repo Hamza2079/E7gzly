@@ -88,15 +88,13 @@ export default function PostConsultationModal({
         priceOverride: s.priceOverride,
       })))
 
-      // Save notes if any fields are filled
-      if (prescription || followUp || internalNotes || chiefComplaint) {
-        await upsertVisitNote(entryId, {
-          prescription: prescription || undefined,
-          followUpInstructions: followUp || undefined,
-          internalNotes: internalNotes || undefined,
-          chiefComplaint: chiefComplaint || undefined,
-        })
-      }
+      // Always upsert visit note row so receipts show in المريض + التقارير even if only خدمات
+      await upsertVisitNote(entryId, {
+        prescription: prescription || undefined,
+        followUpInstructions: followUp || undefined,
+        internalNotes: internalNotes || undefined,
+        chiefComplaint: chiefComplaint || undefined,
+      })
 
       setSaved(true)
       // Slight delay to show success feedback

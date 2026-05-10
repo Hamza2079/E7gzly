@@ -4,9 +4,49 @@
 import { useEffect, useState, useTransition } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { upsertSchedule } from "@/actions/queue"
-import { Save, Clock, CalendarDays } from "lucide-react"
+import { Save, CalendarDays, HelpCircle } from "lucide-react"
 
 const DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"]
+
+/** Click the icon for a readable explanation (works on phones; backdrop tap closes). */
+function FieldHint({
+  hintKey,
+  text,
+  activeKey,
+  setActiveKey,
+}: {
+  hintKey: string
+  text: string
+  activeKey: string | null
+  setActiveKey: (k: string | null) => void
+}) {
+  const open = activeKey === hintKey
+  return (
+    <span className="relative inline-flex shrink-0">
+      <button
+        type="button"
+        className={`rounded-full p-0.5 transition-colors ${open ? "text-blue-600 bg-blue-50" : "text-gray-400 hover:text-blue-600"}`}
+        aria-label={text}
+        aria-expanded={open}
+        aria-controls={open ? `${hintKey}-tip` : undefined}
+        id={`${hintKey}-trigger`}
+        onClick={() => setActiveKey(open ? null : hintKey)}
+      >
+        <HelpCircle className="h-3.5 w-3.5" />
+      </button>
+      {open && (
+        <span
+          id={`${hintKey}-tip`}
+          role="tooltip"
+          className="absolute end-[calc(100%+0.5rem)] top-1/2 z-50 w-56 max-w-[min(16rem,calc(100vw-5rem))] -translate-y-1/2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium leading-relaxed text-gray-700 shadow-lg sm:start-[calc(100%+0.5rem)] sm:end-auto sm:-translate-y-1/4"
+          dir="rtl"
+        >
+          {text}
+        </span>
+      )}
+    </span>
+  )
+}
 
 interface Schedule {
   day_of_week: number
@@ -30,6 +70,7 @@ export default function ScheduleForm({ providerId }: { providerId: string }) {
   const [globalAdvanceDays, setGlobalAdvanceDays] = useState(7)
   const [savingAdvance, setSavingAdvance] = useState(false)
   const [advanceSaved, setAdvanceSaved] = useState(false)
+  const [openHintKey, setOpenHintKey] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -142,13 +183,22 @@ export default function ScheduleForm({ providerId }: { providerId: string }) {
   }
 
   return (
-    <div className="space-y-6" dir="rtl">
+    <div className="relative space-y-6" dir="rtl">
+
+      {openHintKey !== null && (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 cursor-default bg-black/25"
+          aria-label="إغلاق الشرح"
+          onClick={() => setOpenHintKey(null)}
+        />
+      )}
 
       {/* ── Global: Advance Booking Days ── */}
       <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-5">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-600 mt-1 sm:mt-0">
               <CalendarDays className="h-5 w-5" />
             </div>
             <div>
@@ -158,24 +208,30 @@ export default function ScheduleForm({ providerId }: { providerId: string }) {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
             <div className="flex items-center gap-2">
               <input
                 type="number"
                 value={globalAdvanceDays}
                 onChange={(e) => setGlobalAdvanceDays(parseInt(e.target.value) || 1)}
-                className="w-20 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm text-center font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="relative z-50 w-20 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm text-center font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400"
                 min={1}
                 max={90}
               />
               <span className="text-sm text-gray-500">يوم</span>
+              <FieldHint
+                hintKey="global-advance-days"
+                activeKey={openHintKey}
+                setActiveKey={setOpenHintKey}
+                text="عدد الأيام المستقبلية التي يستطيع المريض فيها أخذ حجز مسبق عندك؛ تُحفَظ نفس القيمة لكل أيام الدوام عند الضغط على «حفظ للكل»."
+              />
             </div>
             <button
               onClick={handleSaveAdvanceDays}
               disabled={savingAdvance}
-              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50 transition"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50 transition"
             >
-              {advanceSaved ? "✓ تم الحفظ" : <><Save className="h-3.5 w-3.5" /> حفظ</>}
+              {advanceSaved ? "✓ تم الحفظ" : <><Save className="h-3.5 w-3.5" /> حفظ للكل</>}
             </button>
           </div>
         </div>
@@ -192,9 +248,9 @@ export default function ScheduleForm({ providerId }: { providerId: string }) {
                 s.is_active ? "border-blue-200 bg-white" : "border-gray-100 bg-gray-50"
               }`}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2">
+                  <label className="relative z-50 flex cursor-pointer items-center gap-2">
                     <input
                       type="checkbox"
                       checked={s.is_active}
@@ -204,12 +260,18 @@ export default function ScheduleForm({ providerId }: { providerId: string }) {
                     <span className={`font-semibold ${s.is_active ? "text-gray-900" : "text-gray-400"}`}>
                       {dayName}
                     </span>
+                    <FieldHint
+                      hintKey={`day-${dayIndex}-active`}
+                      activeKey={openHintKey}
+                      setActiveKey={setOpenHintKey}
+                      text='عند التفعيل: يعتبر هذا يوم عمل، يمكن للمرضى رؤيته وحجوزات هذا اليوم تُطبّق وفق المواعيد أدناه. عند الإيقاف: لا يعمل الطابور ولا الحجز المسبق لهذا الاسم اليوم.'
+                    />
                   </label>
                 </div>
                 <button
                   onClick={() => handleSave(dayIndex)}
                   disabled={isPending}
-                  className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                  className="w-full sm:w-auto flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                 >
                   {saved === dayIndex ? "✓ تم الحفظ" : <><Save className="h-3.5 w-3.5" /> حفظ</>}
                 </button>
@@ -218,7 +280,15 @@ export default function ScheduleForm({ providerId }: { providerId: string }) {
               {s.is_active && (
                 <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-500">وقت البداية</label>
+                    <label className="relative z-50 flex items-start gap-1 text-xs font-medium text-gray-500">
+                      وقت البداية
+                      <FieldHint
+                        hintKey={`day-${dayIndex}-start`}
+                        activeKey={openHintKey}
+                        setActiveKey={setOpenHintKey}
+                        text="أول وقت يسمح فيه النظام للمرضى بالانضمام للطابور أو الحجز المسبق وفق هذا اليوم."
+                      />
+                    </label>
                     <input
                       type="time"
                       value={s.start_time}
@@ -227,7 +297,15 @@ export default function ScheduleForm({ providerId }: { providerId: string }) {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500">وقت الانتهاء</label>
+                    <label className="relative z-50 flex items-start gap-1 text-xs font-medium text-gray-500">
+                      وقت الانتهاء
+                      <FieldHint
+                        hintKey={`day-${dayIndex}-end`}
+                        activeKey={openHintKey}
+                        setActiveKey={setOpenHintKey}
+                        text="لا يمكن للمرضى الجدد الانضمام بعد هذا الوقت؛ من يمكن أن يكمّلوا يظل وفق وقت التشغيل لديك."
+                      />
+                    </label>
                     <input
                       type="time"
                       value={s.end_time}
@@ -236,7 +314,15 @@ export default function ScheduleForm({ providerId }: { providerId: string }) {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500">بداية الاستراحة</label>
+                    <label className="relative z-50 flex items-start gap-1 text-xs font-medium text-gray-500">
+                      بداية الاستراحة
+                      <FieldHint
+                        hintKey={`day-${dayIndex}-break-start`}
+                        activeKey={openHintKey}
+                        setActiveKey={setOpenHintKey}
+                        text="بداية فترة لا تستقبل فيها الطابور (مثل غذاء)، اختياري؛ اتركه فارغاً إن لم يوجد وقت ثابت."
+                      />
+                    </label>
                     <input
                       type="time"
                       value={s.break_start || ""}
@@ -245,7 +331,15 @@ export default function ScheduleForm({ providerId }: { providerId: string }) {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500">نهاية الاستراحة</label>
+                    <label className="relative z-50 flex items-start gap-1 text-xs font-medium text-gray-500">
+                      نهاية الاستراحة
+                      <FieldHint
+                        hintKey={`day-${dayIndex}-break-end`}
+                        activeKey={openHintKey}
+                        setActiveKey={setOpenHintKey}
+                        text="عند هذا الوقت يُعتبر الطابور عاداً للعمل بعد الاستراحة."
+                      />
+                    </label>
                     <input
                       type="time"
                       value={s.break_end || ""}
@@ -254,7 +348,15 @@ export default function ScheduleForm({ providerId }: { providerId: string }) {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500">الحد الأقصى للمرضى النشطين</label>
+                    <label className="relative z-50 flex items-start gap-1 text-xs font-medium text-gray-500">
+                      الحد الأقصى للمرضى النشطين
+                      <FieldHint
+                        hintKey={`day-${dayIndex}-max-active`}
+                        activeKey={openHintKey}
+                        setActiveKey={setOpenHintKey}
+                        text="أكبر عدد للمرضى الذين يكونون في وقت واحد بحالات طابور: جاهز، غير جاهز، مدعو، أو تحت الكشف."
+                      />
+                    </label>
                     <input
                       type="number"
                       value={s.max_active}
@@ -265,7 +367,15 @@ export default function ScheduleForm({ providerId }: { providerId: string }) {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500">نافذة الطابور (دقيقة)</label>
+                    <label className="relative z-50 flex items-start gap-1 text-xs font-medium text-gray-500">
+                      نافذة الطابور
+                      <FieldHint
+                        hintKey={`day-${dayIndex}-queue-window`}
+                        activeKey={openHintKey}
+                        setActiveKey={setOpenHintKey}
+                        text='عدد المرضى "الجاهزين" الذين يُسمَح بحجزهم دفعة واحدة؛ يقيّد ازدحام غرفة الانتظار دون قطع عددكم الكلي اليوم.'
+                      />
+                    </label>
                     <input
                       type="number"
                       value={s.queue_window}
@@ -276,7 +386,15 @@ export default function ScheduleForm({ providerId }: { providerId: string }) {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500">فترة السماح (دقيقة)</label>
+                    <label className="relative z-50 flex items-start gap-1 text-xs font-medium text-gray-500">
+                      فترة السماح (دقيقة)
+                      <FieldHint
+                        hintKey={`day-${dayIndex}-grace`}
+                        activeKey={openHintKey}
+                        setActiveKey={setOpenHintKey}
+                        text="بعد استدعاء المريض لهذه المدة بالدقائق؛ إن لم يحضر قد يُؤجَّل أو يُعتبر متأخراً حسب سياسات التخطّي لديك."
+                      />
+                    </label>
                     <input
                       type="number"
                       value={s.grace_period}
@@ -287,7 +405,15 @@ export default function ScheduleForm({ providerId }: { providerId: string }) {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500">الحد الأقصى للحجوزات المستقبلية</label>
+                    <label className="relative z-50 flex items-start gap-1 text-xs font-medium text-gray-500">
+                      الحد الأقصى للحجوزات المستقبلية
+                      <FieldHint
+                        hintKey={`day-${dayIndex}-max-res`}
+                        activeKey={openHintKey}
+                        setActiveKey={setOpenHintKey}
+                        text='أكبر عدد أسماء في "قوائم الانتظار المسبقة" لهذا الاسم اليوم قبل أن يعبأ اليوم عند الحجز المسبق فقط.'
+                      />
+                    </label>
                     <input
                       type="number"
                       value={s.max_reservations}

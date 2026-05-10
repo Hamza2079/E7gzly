@@ -218,12 +218,13 @@ export async function resumeQueue(queueId: string) {
 export async function closeQueue(queueId: string, reason?: string) {
   const { supabase } = await getAuthUser()
 
-  // 1. Expire all unserved waiting tickets automatically
+  // 1. Cancel only 'not_ready' tickets automatically when closing. 
+  // 'ready' patients are already at the clinic and should still be served.
   await supabase
     .from("queue_entries")
-    .update({ status: "cancelled" }) // Or 'no_show', but 'cancelled' acts as expired end-of-day
+    .update({ status: "cancelled" })
     .eq("queue_id", queueId)
-    .in("status", ["ready", "not_ready", "waiting", "called", "in_progress"])
+    .eq("status", "not_ready")
 
   // 2. Close the queue itself
   const { error } = await supabase
@@ -233,12 +234,28 @@ export async function closeQueue(queueId: string, reason?: string) {
       closed_at: new Date().toISOString(),
       break_until: null,
       doctor_message: reason || null,
-      session_expires_at: new Date().toISOString() // Expire session instantly
+      // session_expires_at is no longer updated here to keep receptionist alive
     })
     .eq("id", queueId)
     
   if (error) return { error: error.message }
   revalidatePath("/dashboard/queue")
+}
+
+export async function endReceptionistSession(queueId: string) {
+  const { supabase } = await getAuthUser()
+
+  const { error } = await supabase
+    .from("queues")
+    .update({
+      session_expires_at: new Date().toISOString(),
+      session_token: null, // Optional: clear token to force logout
+    })
+    .eq("id", queueId)
+
+  if (error) return { error: error.message }
+  revalidatePath("/dashboard/queue")
+  return { success: true }
 }
 
 // ============================================================
@@ -357,19 +374,20 @@ export async function joinQueue(
     break_end: string | null
   } | null
 
-  const now = new Date()
-  const currentMinutes = now.getHours() * 60 + now.getMinutes()
+  // 3. Enforce start_time — can't join before clinic opens
+  // We use Africa/Cairo as the reference timezone for the clinic
+  const nowInCairo = new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Cairo" }))
+  const currentMinutes = nowInCairo.getHours() * 60 + nowInCairo.getMinutes()
 
-  // 2. Enforce start_time — can't join before clinic opens
   if (schedule?.start_time) {
     const [startH, startM] = schedule.start_time.split(":").map(Number)
     const startMinutes = startH * 60 + startM
     if (currentMinutes < startMinutes) {
-      return { error: `Queue opens at ${schedule.start_time}. Please come back later.` }
+      return { error: `يفتح الطابور عند الساعة ${schedule.start_time}. يرجى المحاولة لاحقاً.` }
     }
   }
 
-  // 3. Enforce end_time — can't join if estimated wait exceeds remaining time
+  // Calculate estimated wait and waiting ahead
   const { count: waitingAhead } = await supabase
     .from("queue_entries")
     .select("*", { count: "exact", head: true })
@@ -381,10 +399,13 @@ export async function joinQueue(
   if (schedule?.end_time) {
     const [endH, endM] = schedule.end_time.split(":").map(Number)
     const endMinutes = endH * 60 + endM
-    const remaining = endMinutes - currentMinutes
-    if (remaining <= 0) {
-      return { error: "Clinic hours are over for today." }
+    
+    if (currentMinutes >= endMinutes) {
+      return { error: "انتهى وقت العمل للعيادة اليوم." }
     }
+
+    const remaining = endMinutes - currentMinutes
+    
     if (estimatedWait > remaining) {
       return { error: "Doctor may not be able to see you today. Estimated wait exceeds remaining work time." }
     }
@@ -716,6 +737,7 @@ export async function completePatient(entryId: string, autoAdvance: boolean = tr
   }
 
   revalidatePath("/dashboard/queue")
+  revalidatePath("/dashboard/reports")
   return { success: true, nextEntry }
 }
 
@@ -761,17 +783,44 @@ export async function skipPatient(entryId: string) {
   return { success: true }
 }
 
-export async function addWalkIn(queueId: string, patientName: string) {
+export async function addWalkIn(queueId: string, patientName: string, patientPhone?: string) {
   const { supabase, user } = await getAuthUser()
 
-  // Get current number
+  // Get current number and provider
   const { data: queue } = await supabase
     .from("queues")
-    .select("current_number")
+    .select("current_number, provider_id")
     .eq("id", queueId)
     .single()
 
   if (!queue) return { error: "Queue not found" }
+
+  let clinicPatientId = null;
+  if (patientPhone) {
+    // try to find existing
+    const { data: existing } = await supabase
+      .from("clinic_patients")
+      .select("id")
+      .eq("provider_id", queue.provider_id)
+      .eq("phone", patientPhone)
+      .maybeSingle()
+    
+    if (existing) {
+      clinicPatientId = existing.id;
+    } else {
+      const { data: newPatient } = await supabase
+        .from("clinic_patients")
+        .insert({ provider_id: queue.provider_id, name: patientName, phone: patientPhone })
+        .select("id").single()
+      clinicPatientId = newPatient?.id;
+    }
+  } else {
+    const { data: newPatient } = await supabase
+      .from("clinic_patients")
+      .insert({ provider_id: queue.provider_id, name: patientName, phone: null })
+      .select("id").single()
+    clinicPatientId = newPatient?.id;
+  }
 
   const newNumber = queue.current_number + 1
   await supabase
@@ -780,12 +829,12 @@ export async function addWalkIn(queueId: string, patientName: string) {
     .eq("id", queueId)
 
   // For walk-in, we use the doctor's own user_id as patient placeholder
-  // In a real system you'd have a walk-in registration flow
   const { error } = await supabase
     .from("queue_entries")
     .insert({
       queue_id: queueId,
       patient_id: user.id, // doctor acts as proxy
+      clinic_patient_id: clinicPatientId,
       queue_number: newNumber,
       status: "ready",
       last_ready_at: new Date().toISOString(),

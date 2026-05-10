@@ -8,6 +8,25 @@ export const metadata = {
   description: "عرض أداء طابورك وإيراداتك.",
 }
 
+export const dynamic = "force-dynamic"
+
+function entryReceiptTotal(
+  entry: Record<string, unknown>
+): number {
+  const lines = entry.queue_entry_services as
+    | { quantity?: number; price_override?: number | null; services?: { price?: number | null } | null }[]
+    | null
+    | undefined
+  if (!lines?.length) return 0
+  return lines.reduce((sum, row) => {
+    const qty = Number(row.quantity) || 0
+    const unit = Number(
+      row.price_override != null ? row.price_override : (row.services?.price ?? 0)
+    )
+    return sum + unit * qty
+  }, 0)
+}
+
 export default async function DoctorReportsPage() {
   const supabase = await createServer()
   const { data: { user } } = await supabase.auth.getUser()
@@ -29,18 +48,30 @@ export default async function DoctorReportsPage() {
     )
   }
 
-  // Fetch queue history for this provider
-  const { data: entries } = await supabase
+  // Fetch queue history for this provider (include line items so revenue matches سجل الزيارات)
+  const { data: entriesRaw } = await supabase
     .from("queue_entries")
-    .select("*, queues!inner(date, provider_id), users(full_name)")
+    .select(`
+      *,
+      queues!inner(date, provider_id, status),
+      users(full_name),
+      queue_entry_services(quantity, price_override, services(price))
+    `)
     .eq("queues.provider_id", provider.id)
     .in("status", ["completed", "no_show", "cancelled"])
     .order("created_at", { ascending: false })
 
-  const completed = entries?.filter(e => e.status === "completed") || []
-  const noShows = entries?.filter(e => e.status === "no_show") || []
+  const entries = entriesRaw as Record<string, unknown>[] | null
 
-  const totalEarnings = completed.length * (provider.consultation_fee || 0)
+  const completed = entries?.filter((e) => e.status === "completed") || []
+  const noShows = entries?.filter((e) => e.status === "no_show") || []
+
+  const feeFallback = Number(provider.consultation_fee) || 0
+  const totalEarnings = completed.reduce((sum, e) => {
+    const receipt = entryReceiptTotal(e)
+    const rowTotal = receipt > 0 ? receipt : feeFallback
+    return sum + rowTotal
+  }, 0)
   
   const uniquePatients = new Set(entries?.map(e => e.patient_id)).size
 
@@ -61,7 +92,7 @@ export default async function DoctorReportsPage() {
             </div>
             <div>
               <p className="text-sm font-medium text-gray-500">إجمالي الإيرادات</p>
-              <p className="text-2xl font-bold text-gray-900">{totalEarnings} <span className="text-sm text-gray-400 font-normal">ج.م</span></p>
+              <p className="text-2xl font-bold text-gray-900">{totalEarnings.toLocaleString("ar-EG")} <span className="text-sm text-gray-400 font-normal">ج.م</span></p>
             </div>
           </div>
         </div>
@@ -122,26 +153,31 @@ export default async function DoctorReportsPage() {
             <table className="w-full text-right text-sm text-gray-600">
               <thead className="bg-gray-50/50 text-xs font-semibold uppercase tracking-wider text-gray-500 border-b border-gray-100">
                 <tr>
-                  <th className="px-6 py-4">التاريخ</th>
-                  <th className="px-6 py-4">اسم المريض</th>
-                  <th className="px-6 py-4">سبب الزيارة</th>
-                  <th className="px-6 py-4">الحالة</th>
-                  <th className="px-6 py-4 text-left">الرسوم المحصّلة</th>
+                  <th className="px-6 py-4 whitespace-nowrap">التاريخ</th>
+                  <th className="px-6 py-4 whitespace-nowrap">اسم المريض</th>
+                  <th className="px-6 py-4 whitespace-nowrap">سبب الزيارة</th>
+                  <th className="px-6 py-4 whitespace-nowrap">الحالة</th>
+                  <th className="px-6 py-4 text-left whitespace-nowrap">الرسوم المحصّلة</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
                 {entries.map((entry) => {
-                  const q = entry.queues as any
-                  const u = entry.users as any
-                  
+                  const q = entry.queues as { date?: string; provider_id?: string; status?: string } | null
+                  const u = entry.users as { full_name?: string } | null
+
                   const isCompleted = entry.status === "completed"
-                  const earned = isCompleted ? (provider.consultation_fee || 0) : 0
+                  const receipt = entryReceiptTotal(entry)
+                  const earned = isCompleted
+                    ? receipt > 0
+                      ? receipt
+                      : feeFallback
+                    : 0
 
                   return (
-                    <tr key={entry.id} className="transition-colors hover:bg-gray-50/50">
+                    <tr key={String(entry.id)} className="transition-colors hover:bg-gray-50/50">
                       <td className="px-6 py-4 whitespace-nowrap text-gray-900 font-medium">{q?.date || "—"}</td>
                       <td className="px-6 py-4 font-medium text-gray-900">{u?.full_name || "غير معروف"}</td>
-                      <td className="px-6 py-4 truncate max-w-[200px]">{entry.visit_reason || "—"}</td>
+                      <td className="px-6 py-4 truncate max-w-[200px]">{String(entry.visit_reason || "—")}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
                           isCompleted ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20" :
@@ -153,7 +189,7 @@ export default async function DoctorReportsPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-left font-semibold text-gray-900">
-                        {earned ? `${earned} ج.م` : "-"}
+                        {isCompleted ? `${Number(earned).toLocaleString("ar-EG")} ج.م` : "—"}
                       </td>
                     </tr>
                   )

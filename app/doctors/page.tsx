@@ -20,21 +20,22 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Sear
   const qStr = resolvedParams?.q || "";
   const cityStr = resolvedParams?.city || "";
   const specStr = resolvedParams?.spec || "";
+  const dayOfWeek = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
 
-  // Fetch verified providers
+  // Fetch verified providers with average rating from reviews
   let query = supabase
     .from("providers")
     .select(`
-
       id,
       user_id,
       city,
-      consultation_fee,
       rating_avg,
       users!inner(full_name, avatar_url),
-      specialties!inner(name)
+      specialties!inner(name),
+      doctor_schedules(start_time, end_time, day_of_week)
     `)
     .eq("is_verified", true)
+    .eq("doctor_schedules.day_of_week", dayOfWeek)
 
   if (qStr) query = query.ilike("users.full_name", `%${qStr}%`)
   if (cityStr) query = query.ilike("city", `%${cityStr}%`)
@@ -47,6 +48,21 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Sear
   if (user) {
     const { data: favs } = await supabase.from("patient_favorites").select("provider_id").eq("patient_id", user.id)
     if (favs) favorites = new Set(favs.map(f => f.provider_id))
+  }
+
+  // Fetch real average ratings from reviews table for each provider
+  const { data: allReviews } = await supabase.from("reviews").select("provider_id, rating")
+  const ratingMap = new Map()
+  if (allReviews) {
+    const totals = new Map()
+    const counts = new Map()
+    allReviews.forEach(r => {
+      totals.set(r.provider_id, (totals.get(r.provider_id) || 0) + r.rating)
+      counts.set(r.provider_id, (counts.get(r.provider_id) || 0) + 1)
+    })
+    totals.forEach((sum, id) => {
+      ratingMap.set(id, (sum / counts.get(id)).toFixed(1))
+    })
   }
 
   // Fetch today's queues for all providers
@@ -66,15 +82,7 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Sear
         .eq("queue_id", q.id)
         .in("status", ["not_ready", "ready", "called", "in_progress"])
 
-      // Count patients physically at clinic (ready)
-      const { count: readyCount } = await supabase
-        .from("queue_entries")
-        .select("*", { count: "exact", head: true })
-        .eq("queue_id", q.id)
-        .in("status", ["ready", "called", "in_progress"])
-
       const waiting = totalActive || 0
-      const atClinic = readyCount || 0
       const waitMins = waiting * (q.avg_duration || 10)
       const nextNumber = (q.current_number || 0) + 1
 
@@ -82,7 +90,6 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Sear
         status: q.status,
         waitMins,
         waiting,
-        atClinic,
         nextNumber,
       })
     }
@@ -127,13 +134,25 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Sear
           ) : (
             providers.map((provider, index) => {
               const queue = queueMap.get(provider.id)
-              const status = queue?.status || "closed"
+              const schedule = Array.isArray(provider.doctor_schedules) ? provider.doctor_schedules[0] : provider.doctor_schedules
+              const startTime = schedule?.start_time?.substring(0, 5)
+              const endTime = schedule?.end_time?.substring(0, 5)
+              
+              // Auto-close logic: if current time > endTime (in Cairo timezone), status is closed for patients
+              const nowInCairo = new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Cairo" }))
+              const currentTimeStr = `${String(nowInCairo.getHours()).padStart(2, '0')}:${String(nowInCairo.getMinutes()).padStart(2, '0')}`
+              
+              let status = queue?.status || "closed"
+              if (endTime && currentTimeStr > endTime) {
+                status = "closed"
+              }
+
               const waitMins = queue?.waitMins ?? null
               const waiting = queue?.waiting ?? null
-              const atClinic = queue?.atClinic ?? null
               const placeholderImg = placeholders[index % placeholders.length]
               const u = Array.isArray(provider.users) ? provider.users[0] : provider.users;
               const isFavorite = favorites.has(provider.id);
+              const realRating = ratingMap.get(provider.id) || provider.rating_avg || "5.0";
 
               return (
                 <div key={provider.id} className="group bg-white rounded-[2rem] overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 flex flex-col">
@@ -179,7 +198,7 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Sear
                         {provider.specialties?.name || "طب عام"}
                       </p>
                       <div className="flex items-center gap-1 text-[10px] font-bold text-amber-500 bg-amber-50 px-2 py-0.5 rounded-lg">
-                        ⭐ {provider.rating_avg || "5.0"}
+                        ⭐ {realRating}
                       </div>
                     </div>
                     
@@ -187,8 +206,15 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Sear
                       د. {u?.full_name}
                     </h3>
                     
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-gray-400">
-                      <MapPin className="h-3.5 w-3.5 text-blue-500" /> {provider.city || "موقع العيادة"}
+                    <div className="flex flex-col gap-2 mt-2">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-gray-400">
+                        <MapPin className="h-3.5 w-3.5 text-blue-500" /> {provider.city || "موقع العيادة"}
+                      </div>
+                      {startTime && endTime && (
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-gray-400">
+                          <Clock className="h-3.5 w-3.5 text-blue-500" /> متاح {startTime} - {endTime}
+                        </div>
+                      )}
                     </div>
 
                     {/* Compact Queue Info */}
