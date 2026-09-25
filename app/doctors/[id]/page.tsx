@@ -16,6 +16,7 @@ export async function generateMetadata({ params }) {
 export default async function DoctorProfilePage({ params }) {
   const { id: providerId } = await params
   const supabase = await createServer()
+  const today = new Date().toISOString().split("T")[0]
 
   // Fetch provider
   const { data: provider } = await supabase
@@ -31,7 +32,6 @@ export default async function DoctorProfilePage({ params }) {
   const specialty = provider.specialties
 
   // Fetch today's queue
-  const today = new Date().toISOString().split("T")[0]
   const { data: queue } = await supabase
     .from("queues")
     .select("*, doctor_schedules(max_active, end_time, break_start, break_end)")
@@ -47,25 +47,12 @@ export default async function DoctorProfilePage({ params }) {
     .order("created_at", { ascending: false })
     .limit(5)
 
-  // Queue stats
   let waitingCount = 0
   let atClinicCount = 0
   let nextTicketNumber = 1
   if (queue) {
-    const { count: wc } = await supabase
-      .from("queue_entries")
-      .select("*", { count: "exact", head: true })
-      .eq("queue_id", queue.id)
-      .in("status", ["not_ready", "ready", "called", "in_progress"])
-    waitingCount = wc || 0
-
-    const { count: rc } = await supabase
-      .from("queue_entries")
-      .select("*", { count: "exact", head: true })
-      .eq("queue_id", queue.id)
-      .in("status", ["ready", "called", "in_progress"])
-    atClinicCount = rc || 0
-
+    waitingCount = queue.waiting_count || 0
+    atClinicCount = queue.at_clinic_count || 0
     nextTicketNumber = (queue.current_number || 0) + 1
   }
 
@@ -74,8 +61,7 @@ export default async function DoctorProfilePage({ params }) {
   const endTime = schedule?.end_time?.substring(0, 5)
   const estimatedWait = waitingCount * (queue?.avg_duration || 10)
   const isFull = waitingCount >= maxActive
-  
-  // Auto-close logic
+
   const nowInCairo = new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Cairo" }))
   const currentTimeStr = `${String(nowInCairo.getHours()).padStart(2, '0')}:${String(nowInCairo.getMinutes()).padStart(2, '0')}`
   const isPastEndTime = endTime && currentTimeStr > endTime
@@ -101,12 +87,10 @@ export default async function DoctorProfilePage({ params }) {
   else if (isFull) disabledReason = "الطابور مكتمل"
   else if (isProvider) disabledReason = "لا يمكن للأطباء الانضمام للطابور"
 
-  // Future reservations data
   const [availableDays, myReservations] = await Promise.all([
     getAvailableDays(providerId),
     authUser ? getMyReservations() : Promise.resolve([]),
   ])
-  // Filter reservations to only this doctor
   const myDoctorReservations = myReservations.filter(r => r.providerId === providerId)
     .filter(r => ["pending", "confirmed", "converted"].includes(r.status))
 

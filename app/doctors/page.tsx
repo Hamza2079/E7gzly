@@ -20,7 +20,7 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Sear
   const qStr = resolvedParams?.q || "";
   const cityStr = resolvedParams?.city || "";
   const specStr = resolvedParams?.spec || "";
-  const dayOfWeek = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const dayOfWeek = new Date().getDay();
 
   // Fetch verified providers with average rating from reviews
   let query = supabase
@@ -75,14 +75,7 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Sear
   const queueMap = new Map()
   if (queues) {
     for (const q of queues) {
-      // Count active patients (waiting to be served)
-      const { count: totalActive } = await supabase
-        .from("queue_entries")
-        .select("*", { count: "exact", head: true })
-        .eq("queue_id", q.id)
-        .in("status", ["not_ready", "ready", "called", "in_progress"])
-
-      const waiting = totalActive || 0
+      const waiting = q.waiting_count || 0
       const waitMins = waiting * (q.avg_duration || 10)
       const nextNumber = (q.current_number || 0) + 1
 

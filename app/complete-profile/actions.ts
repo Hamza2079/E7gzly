@@ -143,6 +143,5 @@ export async function completeProfile(formData: FormData) {
     redirect("/pending-approval")
   }
 
-  // Patient → go to dashboard
-  redirect("/dashboard")
+  redirect("/my-queue")
 }

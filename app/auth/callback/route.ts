@@ -1,57 +1,74 @@
-// @ts-nocheck — Remove after regenerating types
-import { NextResponse } from "next/server"
-import { createServer } from "@/lib/supabase/server"
+import { createServerClient } from "@supabase/ssr"
+import { NextResponse, type NextRequest } from "next/server"
+import { homePathForRole } from "@/lib/auth/paths"
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
+export async function GET(request: NextRequest) {
+  const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get("code")
 
-  if (code) {
-    const supabase = await createServer()
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+  if (!code) {
+    return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent("Missing auth code")}`)
+  }
 
-    if (!error) {
-      // Check user's role to redirect to the right place
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+  // Session cookies must be written onto the response we actually return.
+  const pendingCookies: { name: string; value: string; options?: Record<string, unknown> }[] = []
 
-      if (user) {
-        const { data: profile } = await supabase
-          .from("users")
-          .select("role, profile_completed")
-          .eq("id", user.id)
-          .single()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            pendingCookies.push({ name, value, options: options as Record<string, unknown> | undefined })
+          })
+        },
+      },
+    }
+  )
 
-        // New Google user → complete profile
-        if (!profile || !profile.profile_completed) {
-          return NextResponse.redirect(new URL("/complete-profile", request.url))
-        }
+  const { error } = await supabase.auth.exchangeCodeForSession(code)
+  if (error) {
+    return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message)}`)
+  }
 
-        // Admin → admin dashboard
-        if (profile.role === "admin") {
-          return NextResponse.redirect(new URL("/admin", request.url))
-        }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-        // Provider → check verification
-        if (profile.role === "provider") {
-          const { data: provider } = await supabase
-            .from("providers")
-            .select("verification_status")
-            .eq("user_id", user.id)
-            .single()
+  let redirectPath = homePathForRole("patient")
 
-          if (provider && provider.verification_status !== "approved") {
-            return NextResponse.redirect(new URL("/pending-approval", request.url))
-          }
-        }
-      }
+  if (user) {
+    const { data: profile } = await supabase
+      .from("users")
+      .select("role, profile_completed")
+      .eq("id", user.id)
+      .maybeSingle()
 
-      // Default: patient → dashboard
-      return NextResponse.redirect(new URL("/dashboard", request.url))
+    if (!profile || !profile.profile_completed) {
+      redirectPath = "/complete-profile"
+    } else if (profile.role === "provider") {
+      const { data: provider } = await supabase
+        .from("providers")
+        .select("verification_status")
+        .eq("user_id", user.id)
+        .maybeSingle()
+
+      redirectPath =
+        provider && provider.verification_status !== "approved"
+          ? "/pending-approval"
+          : homePathForRole("provider")
+    } else {
+      redirectPath = homePathForRole(profile.role)
     }
   }
 
-  // Something went wrong
-  return NextResponse.redirect(new URL("/login", request.url))
+  const response = NextResponse.redirect(`${origin}${redirectPath}`)
+  pendingCookies.forEach(({ name, value, options }) => {
+    response.cookies.set(name, value, options)
+  })
+  return response
 }

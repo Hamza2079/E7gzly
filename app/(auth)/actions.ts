@@ -122,7 +122,6 @@ export async function signInWithCredentials(formData: FormData) {
     redirect("/login?error=" + encodeURIComponent(error.message))
   }
 
-  // Check role to redirect properly
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -132,12 +131,11 @@ export async function signInWithCredentials(formData: FormData) {
       .from("users")
       .select("role")
       .eq("id", user.id)
-      .single()
+      .maybeSingle()
 
-    if (profile?.role === "admin") {
-      redirect("/admin")
-    }
+    if (profile?.role === "admin") redirect("/admin")
+    if (profile?.role === "provider") redirect("/dashboard/queue")
   }
 
-  redirect("/dashboard")
+  redirect("/my-queue")
 }

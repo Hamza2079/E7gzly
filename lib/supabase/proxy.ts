@@ -1,7 +1,46 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
+import { homePathForRole } from "@/lib/auth/paths"
+
+function isAuthPage(pathname: string) {
+  return pathname.startsWith("/login") || pathname.startsWith("/register")
+}
+
+function isProtectedRoute(pathname: string) {
+  return (
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/queue") ||
+    pathname.startsWith("/my-queue") ||
+    pathname.startsWith("/my-visits") ||
+    pathname.startsWith("/my-reviews") ||
+    pathname.startsWith("/favorites") ||
+    pathname.startsWith("/notifications") ||
+    pathname.startsWith("/profile") ||
+    pathname === "/complete-profile" ||
+    pathname === "/pending-approval"
+  )
+}
+
+/** Redirects must copy cookies from the Supabase response or a token refresh is thrown away. */
+function redirectWithSession(
+  request: NextRequest,
+  supabaseResponse: NextResponse,
+  pathname: string
+) {
+  const url = request.nextUrl.clone()
+  url.pathname = pathname
+  url.search = ""
+  const redirectResponse = NextResponse.redirect(url)
+  supabaseResponse.cookies.getAll().forEach((cookie) => {
+    redirectResponse.cookies.set(cookie)
+  })
+  return redirectResponse
+}
 
 export async function updateSession(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+
   let supabaseResponse = NextResponse.next({
     request,
   })
@@ -15,9 +54,7 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          )
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           supabaseResponse = NextResponse.next({
             request,
           })
@@ -29,130 +66,70 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // Refresh the session
+  // Must run on every matched request (including /auth/callback) so the session is refreshed.
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const pathname = request.nextUrl.pathname
-
-  // Routes that don't need any checks
-  const isPublicRoute =
-    pathname === "/" ||
-    pathname.startsWith("/doctors") ||
-    pathname.startsWith("/auth")
-
-  const isAuthRoute =
-    pathname.startsWith("/login") || pathname.startsWith("/register")
-
-  const isProtectedRoute =
-    pathname.startsWith("/dashboard") ||
-    pathname.startsWith("/admin") ||
-    pathname.startsWith("/queue")
-
-  const isCompleteProfileRoute = pathname === "/complete-profile"
-  const isPendingApprovalRoute = pathname === "/pending-approval"
-
-  // --- Not logged in ---
   if (!user) {
-    if (isProtectedRoute || isCompleteProfileRoute || isPendingApprovalRoute) {
-      const url = request.nextUrl.clone()
-      url.pathname = "/login"
-      return NextResponse.redirect(url)
+    if (isProtectedRoute(pathname)) {
+      return redirectWithSession(request, supabaseResponse, "/login")
     }
     return supabaseResponse
   }
 
-  // --- Logged in: fetch profile from public.users ---
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile } = await supabase
     .from("users")
     .select("role, profile_completed")
     .eq("id", user.id)
-    .single()
+    .maybeSingle()
 
-
-  // TEMP DEBUG
-  if (profileError) console.log("[MW]", user.email, "profile error:", profileError.message)
-  if (profile) console.log("[MW]", user.email, "role:", profile.role)
-
-  // If no profile row exists yet (edge case), let them through
   if (!profile) {
     return supabaseResponse
   }
 
-  // --- Profile not completed (Google users on first login) ---
-  if (!profile.profile_completed && !isCompleteProfileRoute && !pathname.startsWith("/auth")) {
-    const url = request.nextUrl.clone()
-    url.pathname = "/complete-profile"
-    return NextResponse.redirect(url)
+  const home = homePathForRole(profile.role)
+
+  if (!profile.profile_completed && pathname !== "/complete-profile" && !pathname.startsWith("/auth")) {
+    return redirectWithSession(request, supabaseResponse, "/complete-profile")
   }
 
-  // --- Doctor pending approval ---
   if (
     profile.role === "provider" &&
     profile.profile_completed &&
-    !isPendingApprovalRoute &&
+    pathname !== "/pending-approval" &&
     !pathname.startsWith("/auth") &&
-    !isCompleteProfileRoute
+    pathname !== "/complete-profile"
   ) {
-    // Check if the doctor is verified
     const { data: provider } = await supabase
       .from("providers")
       .select("verification_status")
       .eq("user_id", user.id)
-      .single()
+      .maybeSingle()
 
-    if (provider && provider.verification_status === "pending") {
-      const url = request.nextUrl.clone()
-      url.pathname = "/pending-approval"
-      return NextResponse.redirect(url)
-    }
-
-    if (provider && provider.verification_status === "rejected") {
-      const url = request.nextUrl.clone()
-      url.pathname = "/pending-approval"
-      return NextResponse.redirect(url)
+    if (provider && provider.verification_status !== "approved") {
+      return redirectWithSession(request, supabaseResponse, "/pending-approval")
     }
   }
 
-  // --- Logged in user visiting auth pages → redirect based on role ---
-  if (isAuthRoute) {
-    const url = request.nextUrl.clone()
-    url.pathname =
-      profile.role === "admin"
-        ? "/admin"
-        : profile.role === "provider"
-        ? "/dashboard/queue"
-        : "/my-queue"
-    return NextResponse.redirect(url)
+  if (isAuthPage(pathname)) {
+    return redirectWithSession(request, supabaseResponse, home)
   }
 
-  // --- Admin visiting /dashboard → redirect to /admin ---
   if (pathname.startsWith("/dashboard") && profile.role === "admin") {
-    const url = request.nextUrl.clone()
-    url.pathname = "/admin"
-    return NextResponse.redirect(url)
+    return redirectWithSession(request, supabaseResponse, "/admin")
   }
 
-  // --- Non-admin trying to access /admin → redirect to their home ---
   if (pathname.startsWith("/admin") && profile.role !== "admin") {
-    const url = request.nextUrl.clone()
-    url.pathname = profile.role === "provider" ? "/dashboard/queue" : "/my-queue"
-    return NextResponse.redirect(url)
+    return redirectWithSession(request, supabaseResponse, home)
   }
 
-  // --- Provider visiting patient dashboard index → redirect to /dashboard/queue ---
   if (pathname === "/dashboard" && profile.role === "provider") {
-    const url = request.nextUrl.clone()
-    url.pathname = "/dashboard/queue"
-    return NextResponse.redirect(url)
+    return redirectWithSession(request, supabaseResponse, "/dashboard/queue")
   }
 
-  // --- Patient visiting any /dashboard route → redirect to /my-queue ---
   if (pathname.startsWith("/dashboard") && profile.role === "patient") {
-    const url = request.nextUrl.clone()
-    url.pathname = "/my-queue"
-    return NextResponse.redirect(url)
+    return redirectWithSession(request, supabaseResponse, "/my-queue")
   }
 
   return supabaseResponse

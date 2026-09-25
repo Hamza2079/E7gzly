@@ -1,18 +1,37 @@
-import { NextResponse } from "next/server"
-import { createServer } from "@/lib/supabase/server"
+import { NextResponse, type NextRequest } from "next/server"
+import { createServerClient } from "@supabase/ssr"
 
-export async function POST(request: Request) {
-  const supabase = await createServer()
+async function signOutAndRedirect(request: NextRequest, pathname: string) {
+  const url = request.nextUrl.clone()
+  url.pathname = pathname
+  url.search = ""
+  const response = NextResponse.redirect(url)
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options)
+          })
+        },
+      },
+    }
+  )
+
   await supabase.auth.signOut()
-
-  const url = new URL("/", request.url)
-  return NextResponse.redirect(url)
+  return response
 }
 
-export async function GET(request: Request) {
-  const supabase = await createServer()
-  await supabase.auth.signOut()
+export async function POST(request: NextRequest) {
+  return signOutAndRedirect(request, "/")
+}
 
-  const url = new URL("/login", request.url)
-  return NextResponse.redirect(url)
+export async function GET(request: NextRequest) {
+  return signOutAndRedirect(request, "/login")
 }

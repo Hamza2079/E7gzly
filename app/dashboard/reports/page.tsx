@@ -8,7 +8,6 @@ export const metadata = {
   description: "عرض أداء طابورك وإيراداتك.",
 }
 
-export const dynamic = "force-dynamic"
 
 function entryReceiptTotal(
   entry: Record<string, unknown>
