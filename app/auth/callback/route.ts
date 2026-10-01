@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr"
+import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 import { homePathForRole } from "@/lib/auth/paths"
 
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Session cookies must be written onto the response we actually return.
-  const pendingCookies: { name: string; value: string; options?: Record<string, unknown> }[] = []
+  const pendingCookies: { name: string; value: string; options: CookieOptions }[] = []
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            pendingCookies.push({ name, value, options: options as Record<string, unknown> | undefined })
+            pendingCookies.push({ name, value, options })
           })
         },
       },

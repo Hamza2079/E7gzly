@@ -13,7 +13,8 @@ export const config = {
      * - _next/image (image optimization)
      * - favicon.ico
      * - static assets (svg, png, jpg, etc.)
+     * - /auth/callback (OAuth code exchange must run without proxy interference)
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|auth/callback|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 }
