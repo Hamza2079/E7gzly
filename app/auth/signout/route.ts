@@ -33,5 +33,17 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  // Never sign out on prefetch requests from Next.js router or browser link prefetching
+  const isPrefetch =
+    request.headers.get("purpose") === "prefetch" ||
+    request.headers.get("sec-purpose") === "prefetch" ||
+    request.headers.get("x-purpose") === "prefetch" ||
+    request.headers.get("next-router-prefetch") !== null
+
+  if (isPrefetch) {
+    return new NextResponse(null, { status: 204 })
+  }
+
   return signOutAndRedirect(request, "/login")
 }
+

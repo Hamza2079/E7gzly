@@ -78,9 +78,14 @@ export default async function Navbar() {
                       <Link href="/my-visits" className="px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600">زياراتي</Link>
                       <Link href="/favorites" className="px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600">الأطباء المحفوظون</Link>
                       <div className="border-t border-gray-50"></div>
-                       <Link href="/auth/signout" className="w-full px-4 py-2.5 text-left text-sm font-bold text-red-600 hover:bg-red-50">
-                         تسجيل الخروج
-                       </Link>
+                      <form action="/auth/signout" method="post" className="w-full">
+                        <button
+                          type="submit"
+                          className="w-full px-4 py-2.5 text-right text-sm font-bold text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          تسجيل الخروج
+                        </button>
+                      </form>
                     </div>
                   </div>
                 )}
