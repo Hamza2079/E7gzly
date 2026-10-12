@@ -1,6 +1,5 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
-import { homePathForRole } from "@/lib/auth/paths"
 
 function isAuthPage(pathname: string) {
   return pathname.startsWith("/login") || pathname.startsWith("/register")
@@ -22,28 +21,12 @@ function isProtectedRoute(pathname: string) {
   )
 }
 
-/** Redirects must copy cookies from the Supabase response or a token refresh is thrown away. */
-function redirectWithSession(
-  request: NextRequest,
-  supabaseResponse: NextResponse,
-  pathname: string
-) {
-  const url = request.nextUrl.clone()
-  url.pathname = pathname
-  url.search = ""
-  const redirectResponse = NextResponse.redirect(url)
-  supabaseResponse.cookies.getAll().forEach((cookie) => {
-    redirectResponse.cookies.set(cookie)
-  })
-  return redirectResponse
-}
-
 export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
-  let supabaseResponse = NextResponse.next({
-    request,
-  })
+  // Create the initial response — must always return THIS or a redirect built from it.
+  // Never return a plain NextResponse.next() at the end; that would drop Set-Cookie headers.
+  let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -54,10 +37,12 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
+          // Write new cookie values into the request object so downstream
+          // server code sees the refreshed token immediately.
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({
-            request,
-          })
+          // Rebuild supabaseResponse with the mutated request so Next.js
+          // sends the updated cookies back to the browser.
+          supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           )
@@ -66,71 +51,41 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // Must run on every matched request (including /auth/callback) so the session is refreshed.
+  // Per Next.js 16 docs: Proxy should perform OPTIMISTIC checks only.
+  // Avoid DB queries here — they add latency on every request and can cause
+  // cookie loss on Vercel when the async call delays the response.
+  // getUser() is the correct call — it validates the JWT with Supabase Auth
+  // and silently refreshes the token if needed (which triggers setAll above).
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) {
-    if (isProtectedRoute(pathname)) {
-      return redirectWithSession(request, supabaseResponse, "/login")
-    }
-    return supabaseResponse
+  // Unauthenticated user hitting a protected route → redirect to login
+  if (!user && isProtectedRoute(pathname)) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/login"
+    url.search = ""
+    const redirectResponse = NextResponse.redirect(url)
+    // Copy any refreshed session cookies onto the redirect response
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie)
+    })
+    return redirectResponse
   }
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, profile_completed")
-    .eq("id", user.id)
-    .maybeSingle()
-
-  if (!profile) {
-    return supabaseResponse
+  // Authenticated user hitting a login/register page → send to their home
+  if (user && isAuthPage(pathname)) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/my-queue"
+    url.search = ""
+    const redirectResponse = NextResponse.redirect(url)
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie)
+    })
+    return redirectResponse
   }
 
-  const home = homePathForRole(profile.role)
-
-  if (!profile.profile_completed && pathname !== "/complete-profile" && !pathname.startsWith("/auth")) {
-    return redirectWithSession(request, supabaseResponse, "/complete-profile")
-  }
-
-  if (
-    profile.role === "provider" &&
-    profile.profile_completed &&
-    pathname !== "/pending-approval" &&
-    !pathname.startsWith("/auth") &&
-    pathname !== "/complete-profile"
-  ) {
-    const { data: provider } = await supabase
-      .from("providers")
-      .select("verification_status")
-      .eq("user_id", user.id)
-      .maybeSingle()
-
-    if (provider && provider.verification_status !== "approved") {
-      return redirectWithSession(request, supabaseResponse, "/pending-approval")
-    }
-  }
-
-  if (isAuthPage(pathname)) {
-    return redirectWithSession(request, supabaseResponse, home)
-  }
-
-  if (pathname.startsWith("/dashboard") && profile.role === "admin") {
-    return redirectWithSession(request, supabaseResponse, "/admin")
-  }
-
-  if (pathname.startsWith("/admin") && profile.role !== "admin") {
-    return redirectWithSession(request, supabaseResponse, home)
-  }
-
-  if (pathname === "/dashboard" && profile.role === "provider") {
-    return redirectWithSession(request, supabaseResponse, "/dashboard/queue")
-  }
-
-  if (pathname.startsWith("/dashboard") && profile.role === "patient") {
-    return redirectWithSession(request, supabaseResponse, "/my-queue")
-  }
-
+  // IMPORTANT: Always return supabaseResponse (not NextResponse.next()).
+  // supabaseResponse carries the Set-Cookie headers that persist the session.
   return supabaseResponse
 }

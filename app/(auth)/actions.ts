@@ -139,3 +139,33 @@ export async function signInWithCredentials(formData: FormData) {
 
   redirect("/my-queue")
 }
+
+export async function forgotPassword(formData: FormData) {
+  const supabase = await createServer()
+  const email = formData.get("email") as string
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/reset-password`,
+  })
+
+  if (error) {
+    console.error("Forgot password error:", error.message)
+    redirect("/forgot-password?error=" + encodeURIComponent(error.message))
+  }
+
+  redirect("/forgot-password?message=" + encodeURIComponent("تم إرسال رابط إعادة التعيين إلى بريدك الإلكتروني"))
+}
+
+export async function resetPassword(formData: FormData) {
+  const supabase = await createServer()
+  const password = formData.get("password") as string
+
+  const { error } = await supabase.auth.updateUser({ password })
+
+  if (error) {
+    console.error("Reset password error:", error.message)
+    redirect("/reset-password?error=" + encodeURIComponent(error.message))
+  }
+
+  redirect("/login?message=" + encodeURIComponent("تم تغيير كلمة المرور بنجاح، يمكنك تسجيل الدخول الآن"))
+}

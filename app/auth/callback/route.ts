@@ -5,6 +5,7 @@ import { homePathForRole } from "@/lib/auth/paths"
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get("code")
+  const next = searchParams.get("next") // e.g. /reset-password
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent("Missing auth code")}`)
@@ -33,6 +34,15 @@ export async function GET(request: NextRequest) {
   const { error } = await supabase.auth.exchangeCodeForSession(code)
   if (error) {
     return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message)}`)
+  }
+
+  // If a specific redirect target was requested (e.g. password reset), go straight there
+  if (next) {
+    const response = NextResponse.redirect(`${origin}${next}`)
+    pendingCookies.forEach(({ name, value, options }) => {
+      response.cookies.set(name, value, options)
+    })
+    return response
   }
 
   const {
